@@ -1,0 +1,26 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# local library (database + uploaded images)
+data/
+
+# dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# tooling
+.claude/
+.vercel/
+.DS_Store
+Thumbs.db
+npm-debug.log*
+
+# reference images used for testing
+test-images/

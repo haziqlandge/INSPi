@@ -1,0 +1,40 @@
+{
+  "name": "inspi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal gallery that turns visual references into copy-ready AI prompts.",
+  "scripts": {
+    "dev": "next dev",
+    "dev:lan": "next dev -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check-providers": "tsx scripts/check-providers.ts",
+    "analyze": "tsx scripts/analyze.ts"
+  },
+  "dependencies": {
+    "animejs": "^4.5.0",
+    "motion": "^13.4.6",
+    "nanoid": "^6.0.1",
+    "next": "16.3.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "tsx": "^4",
+    "typescript": "^5",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

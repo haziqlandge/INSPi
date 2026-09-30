@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en" data-type="fraunces" data-theme="light" data-paper="bone" data-text="ink" data-accent="moss">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INSPi type specimen</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..600&family=Geist+Mono:wght@400..500&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400..500&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&family=Familjen+Grotesk:wght@400..600&family=Azeret+Mono:wght@400..500&display=swap">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=gambetta@400,500,600,401&f[]=general-sans@400,500,600&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body,h1,p,ul,figure{margin:0}
+ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+/* ---- colour: three independent choices ----
+   paper  → --bg page · --surface cards · --line hairlines
+   text   → --head names and headings · --ink reading text · --muted secondary text
+   accent → --accent small highlights (mode badge, favourite, JSON keys, focus ring) */
+:root{
+  --shadow:60 40 20;
+  --thumb:color-mix(in srgb,var(--muted) 36%,transparent);
+  --thumb-hover:color-mix(in srgb,var(--muted) 72%,transparent);
+}
+:root[data-theme="dark"]{--shadow:0 0 0}
+
+:root[data-paper="bone"]   {--bg:#F3EEE4; --surface:#FBF8F2; --line:#DCD3C4}
+:root[data-paper="cream"]  {--bg:#F5EFDF; --surface:#FCF8EC; --line:#DED5BD}
+:root[data-paper="manila"] {--bg:#EFE4CB; --surface:#F8F1DF; --line:#D8C9A6}
+:root[data-paper="apricot"]{--bg:#F6E9DA; --surface:#FDF5EA; --line:#E6D2BC}
+:root[data-paper="blotter"]{--bg:#F1E4DD; --surface:#FAF2EE; --line:#DEC9BF}
+:root[data-theme="dark"][data-paper="bone"]   {--bg:#171310; --surface:#211C17; --line:#362E26}
+:root[data-theme="dark"][data-paper="cream"]  {--bg:#15130E; --surface:#1F1C15; --line:#353024}
+:root[data-theme="dark"][data-paper="manila"] {--bg:#18150E; --surface:#221E14; --line:#383020}
+:root[data-theme="dark"][data-paper="apricot"]{--bg:#1B130E; --surface:#261B14; --line:#3F2E22}
+:root[data-theme="dark"][data-paper="blotter"]{--bg:#191113; --surface:#23191B; --line:#3A2B2E}
+
+:root[data-text="ink"]     {--head:#1F1B16; --ink:#2B2620; --muted:#6A6155}
+:root[data-text="oxblood"] {--head:#6B1F1A; --ink:#2A201C; --muted:#75625A}
+:root[data-text="forest"]  {--head:#1F3A2B; --ink:#24281F; --muted:#5F6450}
+:root[data-text="espresso"]{--head:#3B2416; --ink:#3B2A20; --muted:#765C4E}
+:root[data-text="plum"]    {--head:#3A1D33; --ink:#2C2329; --muted:#6E5B63}
+:root[data-text="indigo"]  {--head:#1D2A4D; --ink:#222636; --muted:#5E6275}
+:root[data-theme="dark"][data-text="ink"]     {--head:#EFE7DA; --ink:#E6DDD0; --muted:#A89C8C}
+:root[data-theme="dark"][data-text="oxblood"] {--head:#F0B7A6; --ink:#EADFD6; --muted:#AD988F}
+:root[data-theme="dark"][data-text="forest"]  {--head:#CFE0B8; --ink:#E6E4D3; --muted:#A3A68C}
+:root[data-theme="dark"][data-text="espresso"]{--head:#F6D9BE; --ink:#EBDCCD; --muted:#B09A88}
+:root[data-theme="dark"][data-text="plum"]    {--head:#EBC9DC; --ink:#E8DCE2; --muted:#A8959F}
+:root[data-theme="dark"][data-text="indigo"]  {--head:#C9D4F2; --ink:#E1E3EC; --muted:#9A9FB0}
+
+:root[data-accent="moss"]     {--accent:#4F5F2E}
+:root[data-accent="ochre"]    {--accent:#7F520A}
+:root[data-accent="burnt"]    {--accent:#A8441F}
+:root[data-accent="raspberry"]{--accent:#8A2F4F}
+:root[data-accent="match"]    {--accent:var(--head)}
+:root[data-theme="dark"][data-accent="moss"]     {--accent:#B5C48A}
+:root[data-theme="dark"][data-accent="ochre"]    {--accent:#E2B04A}
+:root[data-theme="dark"][data-accent="burnt"]    {--accent:#F0A070}
+:root[data-theme="dark"][data-accent="raspberry"]{--accent:#E58FAE}
+
+/* ---- type systems ---- */
+:root[data-type="fraunces"]{
+  --f-display:'Fraunces',Georgia,serif; --f-text:'Instrument Sans',system-ui,sans-serif; --f-mono:'Geist Mono',ui-monospace,monospace;
+  --d-weight:400; --d-track:-.022em; --d-scale:1; --d-var:"SOFT" 60;
+}
+:root[data-type="instrument"]{
+  --f-display:'Instrument Serif',Georgia,serif; --f-text:'Instrument Sans',system-ui,sans-serif; --f-mono:'JetBrains Mono',ui-monospace,monospace;
+  --d-weight:400; --d-track:-.012em; --d-scale:1.16; --d-var:normal;
+}
+:root[data-type="gambetta"]{
+  --f-display:'Gambetta',Georgia,serif; --f-text:'General Sans',system-ui,sans-serif; --f-mono:'Azeret Mono',ui-monospace,monospace;
+  --d-weight:500; --d-track:-.025em; --d-scale:1.03; --d-var:normal;
+}
+:root[data-type="newsreader"]{
+  --f-display:'Newsreader',Georgia,serif; --f-text:'Familjen Grotesk',system-ui,sans-serif; --f-mono:'Azeret Mono',ui-monospace,monospace;
+  --d-weight:500; --d-track:-.02em; --d-scale:1.05; --d-var:normal;
+}
+
+/* ---- scrollbars: a thin floating pill that takes the muted text colour ---- */
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin; scrollbar-color:var(--thumb) transparent}
+}
+::-webkit-scrollbar{width:12px; height:12px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-thumb{
+  background:var(--thumb); background-clip:content-box;
+  border:4px solid transparent; border-radius:999px; min-height:36px;
+}
+::-webkit-scrollbar-thumb:hover{background:var(--thumb-hover); background-clip:content-box; border-width:3px}
+
+body{
+  min-height:100dvh; overflow-x:hidden;
+  background:var(--bg); color:var(--ink);
+  font-family:var(--f-text); font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  transition:background-color .3s ease,color .3s ease;
+}
+::selection{background:var(--accent);color:var(--bg)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+.display{
+  color:var(--head);
+  font-family:var(--f-display); font-weight:var(--d-weight);
+  letter-spacing:var(--d-track); font-variation-settings:var(--d-var);
+  font-optical-sizing:auto;
+}
+
+/* ---- stage ---- */
+.stage{
+  min-height:100dvh;
+  display:grid; grid-template-columns:auto minmax(0,34rem);
+  justify-content:center; align-items:center;
+  gap:clamp(32px,6vw,96px);
+  padding:32px clamp(20px,4vw,56px) 140px;
+}
+
+/* ---- the print (gallery card specimen) ---- */
+.print{
+  background:var(--surface); border:1px solid var(--line); border-radius:4px;
+  padding:10px 10px 0;
+  box-shadow:0 1px 0 rgb(var(--shadow)/.04),0 24px 48px -28px rgb(var(--shadow)/.45);
+}
+.plate{
+  position:relative; overflow:hidden; border-radius:2px;
+  height:min(56dvh,560px); aspect-ratio:4/5;
+  background:
+    radial-gradient(38% 30% at 82% 88%,#FFD9A0 0%,rgb(242 166 90/.55) 38%,transparent 72%),
+    linear-gradient(162deg,#1B1430 0%,#3A1F47 40%,#9C4A3F 76%,#F2A65A 100%);
+}
+.plate i{
+  position:absolute; border-radius:14px;
+  background:rgb(255 255 255/.12);
+  border-top:1px solid rgb(255 255 255/.5); border-left:1px solid rgb(255 255 255/.32);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  box-shadow:0 20px 30px -18px rgb(10 5 25/.6);
+}
+.plate i:nth-child(1){left:12%;top:14%;width:56%;height:34%}
+.plate i:nth-child(2){left:24%;top:32%;width:56%;height:34%}
+.plate i:nth-child(3){left:36%;top:50%;width:56%;height:34%}
+.print figcaption{
+  display:flex; align-items:center; gap:12px;
+  padding:12px 4px 12px;
+}
+.print .cap-name{font-size:calc(21px*var(--d-scale)); line-height:1.15}
+.print .cap-cat{font-size:13px; color:var(--muted)}
+.print .grow{flex:1; min-width:0}
+
+/* ---- the detail panel ---- */
+.panel{min-width:0}
+.meta{display:flex; align-items:center; gap:12px; font-size:14px; color:var(--muted)}
+.meta a{color:var(--ink); text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:4px}
+.meta a:hover{text-decoration-color:var(--accent)}
+.badge{
+  font-size:12px; font-weight:500; line-height:1; color:var(--accent);
+  border:1px solid currentColor; border-radius:6px; padding:4px 7px 3px;
+}
+.meta .push{margin-left:auto}
+
+h1.display{
+  font-size:calc(clamp(44px,5.4vw,88px)*var(--d-scale));
+  line-height:.98; margin:14px 0 18px; text-wrap:balance;
+}
+.note{font-size:17px; line-height:1.6; max-width:34rem; min-height:4.8em; text-wrap:pretty; transition:opacity .18s ease}
+.note.swap{opacity:0}
+
+.tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:16px}
+.tags button{
+  font-size:13px; color:var(--muted);
+  border:1px solid var(--line); border-radius:999px; padding:4px 11px;
+  transition:color .15s ease,border-color .15s ease;
+}
+.tags button:hover{color:var(--ink); border-color:var(--muted)}
+
+.actions{display:flex; align-items:center; gap:8px; margin-top:22px}
+.btn{
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:14px; font-weight:500; line-height:1; white-space:nowrap;
+  padding:11px 18px; border-radius:999px; border:1px solid var(--line);
+  transition:transform .12s ease,background-color .15s ease,border-color .15s ease;
+}
+.btn:hover{border-color:var(--muted)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--head); color:var(--bg); border-color:var(--head)}
+.icon{
+  display:inline-grid; place-items:center; width:36px; height:36px; border-radius:999px;
+  color:var(--muted); transition:color .15s ease,background-color .15s ease,transform .12s ease;
+}
+.icon:hover{color:var(--ink); background:rgb(var(--shadow)/.06)}
+:root[data-theme="dark"] .icon:hover{background:rgb(255 255 255/.07)}
+.icon:active{transform:scale(.92)}
+.icon svg,.btn svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+.icon[aria-pressed="true"]{color:var(--accent)}
+.icon[aria-pressed="true"] svg{fill:currentColor}
+.stepper{display:flex; align-items:center; margin-left:auto; white-space:nowrap; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+
+/* ---- JSON block: long lines wrap with a hanging indent, never scroll sideways ---- */
+.json{
+  position:relative; margin-top:18px;
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+}
+.json pre{
+  margin:0; padding:14px 50px 16px 16px;
+  font-family:var(--f-mono); font-size:12.5px; line-height:1.7;
+  max-height:11.4em; overflow:hidden; white-space:normal;
+  -webkit-mask-image:linear-gradient(#000 35%,transparent 96%); mask-image:linear-gradient(#000 35%,transparent 96%);
+  transition:max-height .35s cubic-bezier(.2,.7,.1,1);
+}
+.json .ln{
+  display:block; white-space:pre-wrap; overflow-wrap:anywhere;
+  padding-left:calc(var(--i)*1ch + 2ch); text-indent:-2ch;
+}
+.json.open pre{
+  max-height:min(40dvh,26em); overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain;
+  -webkit-mask-image:none; mask-image:none;
+}
+.json pre::-webkit-scrollbar{width:10px}
+.json pre::-webkit-scrollbar-track{margin:44px 0 18px}
+.json pre::-webkit-scrollbar-thumb{border-width:3px}
+.json .k{color:var(--accent)}
+.json .n{color:var(--muted)}
+.json .copy{position:absolute; top:6px; right:8px}
+.json .more{
+  position:absolute; left:50%; bottom:-14px; transform:translateX(-50%);
+  width:28px; height:28px; background:var(--surface); border:1px solid var(--line);
+}
+.json .more svg{transition:transform .3s ease}
+.json.open .more svg{transform:rotate(180deg)}
+
+.colophon{margin-top:26px; font-size:13px; line-height:1.55; color:var(--muted)}
+
+/* ---- dock ---- */
+.dock{
+  position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  max-width:calc(100vw - 24px);
+  padding:6px 8px; border-radius:18px;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+  border:1px solid var(--line);
+  box-shadow:0 18px 40px -20px rgb(var(--shadow)/.5);
+}
+.dock .row{display:flex; align-items:center; justify-content:center; gap:6px}
+.dock .group{display:flex; align-items:center; gap:2px; flex:none}
+.dock .rule{width:1px; height:22px; background:var(--line); flex:none; margin:0 6px}
+.dock .lab{font-size:12px; color:var(--muted); margin-right:6px}
+.dock .face{
+  display:flex; align-items:baseline; gap:7px; white-space:nowrap;
+  padding:7px 12px 8px; border-radius:12px; font-size:19px; line-height:1.1; color:var(--muted);
+  transition:color .15s ease,background-color .15s ease;
+}
+.dock .face[data-set="instrument"]{font-size:22px}
+.dock .face kbd{font-family:var(--f-text); font-size:11px; color:var(--muted); opacity:.8}
+.dock .face:hover{color:var(--ink)}
+.dock .face[aria-pressed="true"]{color:var(--bg); background:var(--head)}
+.dock .face[aria-pressed="true"] kbd{color:var(--bg)}
+
+.dock .sw{
+  --v:var(--c);
+  flex:none; width:30px; height:30px; border-radius:999px;
+  display:grid; place-items:center;
+  transition:transform .12s ease,box-shadow .15s ease;
+}
+:root[data-theme="dark"] .dock .sw{--v:var(--cd)}
+.dock .sw:active{transform:scale(.92)}
+.dock .sw[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--head)}
+.dock .sw.paper::before{
+  content:""; width:18px; height:18px; border-radius:999px; background:var(--v);
+  border:1px solid color-mix(in srgb,var(--head) 28%,transparent);
+}
+.dock .sw.text{
+  color:var(--v); font-family:var(--f-display); font-weight:var(--d-weight);
+  font-variation-settings:var(--d-var); font-size:16px; line-height:1;
+}
+.dock .sw.accent::before{content:""; width:12px; height:12px; border-radius:999px; background:var(--v)}
+.dock .sw.accent[data-accent="match"]::before{background:transparent; border:2px solid var(--head)}
+.dock .btn{padding:9px 14px; white-space:nowrap}
+
+/* ---- toast ---- */
+.toast{
+  position:fixed; left:50%; bottom:132px; z-index:5;
+  transform:translate(-50%,16px); opacity:0; pointer-events:none;
+  background:var(--head); color:var(--bg);
+  font-size:14px; font-weight:500; padding:10px 16px; border-radius:999px;
+  box-shadow:0 14px 30px -14px rgb(var(--shadow)/.7);
+  transition:transform .35s cubic-bezier(.2,.9,.2,1.15),opacity .2s ease;
+}
+.toast.show{transform:translate(-50%,0); opacity:1}
+
+/* ---- theme reveal ---- */
+::view-transition-old(root),::view-transition-new(root){animation:none; mix-blend-mode:normal}
+
+/* ---- short or narrow screens ---- */
+@media (max-height:780px) and (min-width:900px){
+  .stage{padding-top:16px; padding-bottom:128px}
+  h1.display{margin:10px 0 12px}
+  .note{font-size:16px}
+  .tags{margin-top:12px}
+  .actions{margin-top:16px}
+  .json{margin-top:14px}
+  .json pre{max-height:9.8em}
+  .json.open pre{max-height:min(36dvh,22em)}
+  .colophon{margin-top:22px}
+  .plate{height:min(52dvh,500px)}
+}
+@media (max-width:899px){
+  .stage{grid-template-columns:minmax(0,1fr); align-items:start; gap:24px; padding:16px 16px 176px}
+  .print{justify-self:center; width:min(100%,420px)}
+  .plate{height:auto; width:100%; aspect-ratio:16/11}
+  h1.display{margin:10px 0 12px}
+  .dock{
+    left:12px; right:12px; bottom:12px; transform:none; max-width:none;
+    flex-direction:row; flex-wrap:wrap; justify-content:center; gap:4px 8px; padding:6px;
+  }
+  .dock .row{display:contents}
+  .dock .rule,.dock .lab,.dock .face kbd{display:none}
+  .dock .faces{order:1; width:100%; justify-content:center}
+  .dock .papers{order:2}
+  .dock .texts{order:3}
+  .dock .accents{order:4}
+  .dock .tools{order:5}
+  .dock .face{padding:6px 7px 7px; font-size:14.5px}
+  .dock .face[data-set="instrument"]{font-size:17px}
+  .dock .sw{width:27px; height:27px}
+  .dock .btn{padding:8px 12px}
+  .toast{bottom:150px}
+  .actions .btn{padding:11px 14px}
+  .actions .icon{width:30px; height:30px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms !important; animation-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<main class="stage">
+
+  <figure class="print">
+    <div class="plate" role="img" aria-label="Placeholder reference image: three frosted panels over a dusk gradient"><i></i><i></i><i></i></div>
+    <figcaption>
+      <div class="grow">
+        <div class="cap-name display">Glass Dusk</div>
+        <div class="cap-cat">Landing Page</div>
+      </div>
+      <button class="icon" id="cardCopy" aria-label="Copy prompt">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg>
+      </button>
+    </figcaption>
+  </figure>
+
+  <article class="panel">
+    <div class="meta">
+      <a href="#">Landing Page</a>
+      <span class="badge">web</span>
+      <span>3 images</span>
+      <button class="icon push" id="fav" aria-pressed="false" aria-label="Favourite">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>
+      </button>
+    </div>
+
+    <h1 class="display">Glass Dusk</h1>
+    <p class="note" id="note"></p>
+
+    <ul class="tags">
+      <li><button>frosted glass</button></li>
+      <li><button>dusk gradient</button></li>
+      <li><button>neon lights</button></li>
+      <li><button>soft shadow</button></li>
+    </ul>
+
+    <div class="actions">
+      <button class="btn primary" id="copyPrompt">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg>
+        Copy prompt
+      </button>
+      <button class="btn" id="retry">Retry</button>
+      <div class="stepper">
+        <button class="icon" id="prev" aria-label="Previous version"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
+        <span id="ver" aria-live="polite">1 of 3</span>
+        <button class="icon" id="next" aria-label="Next version"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+
+    <div class="json" id="json">
+      <pre id="code" tabindex="0" aria-label="Prompt JSON"></pre>
+      <button class="icon copy" id="copyJson" aria-label="Copy JSON">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg>
+      </button>
+      <button class="icon more" id="more" aria-expanded="false" aria-controls="code" aria-label="Show full JSON">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9.5 6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <p class="colophon" id="colophon"></p>
+  </article>
+
+</main>
+
+<nav class="dock" aria-label="Specimen controls">
+  <div class="row">
+    <div class="group faces" role="group" aria-label="Type system">
+      <button class="face" data-set="fraunces" style="font-family:'Fraunces',serif;font-variation-settings:'SOFT' 60"><kbd>1</kbd>Fraunces</button>
+      <button class="face" data-set="instrument" style="font-family:'Instrument Serif',serif"><kbd>2</kbd>Instrument</button>
+      <button class="face" data-set="gambetta" style="font-family:'Gambetta',serif;font-weight:500"><kbd>3</kbd>Gambetta</button>
+      <button class="face" data-set="newsreader" style="font-family:'Newsreader',serif;font-weight:500"><kbd>4</kbd>Newsreader</button>
+    </div>
+    <span class="rule"></span>
+    <div class="group tools">
+      <button class="icon" id="theme" aria-label="Switch to dark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="themeIcon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+      <button class="btn" id="pick">Copy my pick</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="group papers" role="group" aria-label="Paper colour">
+      <span class="lab">Paper</span>
+      <button class="sw paper" data-paper="bone" style="--c:#F3EEE4;--cd:#171310" aria-label="Bone paper" title="Bone"></button>
+      <button class="sw paper" data-paper="cream" style="--c:#F5EFDF;--cd:#15130E" aria-label="Cream paper" title="Cream"></button>
+      <button class="sw paper" data-paper="manila" style="--c:#EFE4CB;--cd:#18150E" aria-label="Manila paper" title="Manila"></button>
+      <button class="sw paper" data-paper="apricot" style="--c:#F6E9DA;--cd:#1B130E" aria-label="Apricot paper" title="Apricot"></button>
+      <button class="sw paper" data-paper="blotter" style="--c:#F1E4DD;--cd:#191113" aria-label="Blotter paper" title="Blotter"></button>
+    </div>
+    <span class="rule"></span>
+    <div class="group texts" role="group" aria-label="Text colour">
+      <span class="lab">Text</span>
+      <button class="sw text" data-text="ink" style="--c:#1F1B16;--cd:#EFE7DA" aria-label="Ink black text" title="Ink black">Aa</button>
+      <button class="sw text" data-text="oxblood" style="--c:#6B1F1A;--cd:#F0B7A6" aria-label="Oxblood text" title="Oxblood">Aa</button>
+      <button class="sw text" data-text="forest" style="--c:#1F3A2B;--cd:#CFE0B8" aria-label="Forest text" title="Forest">Aa</button>
+      <button class="sw text" data-text="espresso" style="--c:#3B2416;--cd:#F6D9BE" aria-label="Espresso text" title="Espresso">Aa</button>
+      <button class="sw text" data-text="plum" style="--c:#3A1D33;--cd:#EBC9DC" aria-label="Plum text" title="Plum">Aa</button>
+      <button class="sw text" data-text="indigo" style="--c:#1D2A4D;--cd:#C9D4F2" aria-label="Indigo text" title="Indigo">Aa</button>
+    </div>
+    <span class="rule"></span>
+    <div class="group accents" role="group" aria-label="Accent colour">
+      <span class="lab">Accent</span>
+      <button class="sw accent" data-accent="moss" style="--c:#4F5F2E;--cd:#B5C48A" aria-label="Moss accent" title="Moss"></button>
+      <button class="sw accent" data-accent="ochre" style="--c:#7F520A;--cd:#E2B04A" aria-label="Ochre accent" title="Ochre"></button>
+      <button class="sw accent" data-accent="burnt" style="--c:#A8441F;--cd:#F0A070" aria-label="Burnt orange accent" title="Burnt orange"></button>
+      <button class="sw accent" data-accent="raspberry" style="--c:#8A2F4F;--cd:#E58FAE" aria-label="Raspberry accent" title="Raspberry"></button>
+      <button class="sw accent" data-accent="match" aria-label="Accent same as text" title="Same as text"></button>
+    </div>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var $ = function (id) { return document.getElementById(id); };
+
+  var SETS = {
+    fraunces:   { label: 'Fraunces set',   display: 'Fraunces',         text: 'Instrument Sans',  mono: 'Geist Mono' },
+    instrument: { label: 'Instrument set', display: 'Instrument Serif', text: 'Instrument Sans',  mono: 'JetBrains Mono' },
+    gambetta:   { label: 'Gambetta set',   display: 'Gambetta',         text: 'General Sans',     mono: 'Azeret Mono' },
+    newsreader: { label: 'Newsreader set', display: 'Newsreader',       text: 'Familjen Grotesk', mono: 'Azeret Mono' }
+  };
+  var PAPERS = { bone: 'Bone', cream: 'Cream', manila: 'Manila', apricot: 'Apricot', blotter: 'Blotter' };
+  var TEXTS = { ink: 'Ink black', oxblood: 'Oxblood', forest: 'Forest', espresso: 'Espresso', plum: 'Plum', indigo: 'Indigo' };
+  var ACCENTS = { moss: 'Moss', ochre: 'Ochre', burnt: 'Burnt orange', raspberry: 'Raspberry', match: 'Same as text' };
+  var OPTIONS = { type: SETS, paper: PAPERS, text: TEXTS, accent: ACCENTS };
+
+  var NOTES = [
+    'Frosted panels float over a dusk gradient. A tight 8px grid, hairline borders and one warm highlight keep it calm. Type stays small and quiet so depth does the talking.',
+    'Three panels overlap on a 12-column grid, each offset one column right and 18% down. Two thirds of the frame stays empty, so the stack reads as a single object.',
+    'Everything is lit from the lower right by one amber source. Panels are 12% white with a 10px blur, edged by a 1px highlight on the top and left only.'
+  ];
+
+  var SPEC = {
+    inspi: 'web/1',
+    name: 'Glass Dusk',
+    category: 'Landing Page',
+    tags: ['frosted glass', 'dusk gradient', 'neon lights', 'soft shadow'],
+    signature: [
+      'three overlapping translucent panels, stepped diagonally',
+      'one warm light source, lower right',
+      'near-black violet ground covering most of the frame'
+    ],
+    palette: [
+      { hex: '#1B1430', role: 'background', share: 0.58 },
+      { hex: '#9C4A3F', role: 'surface', share: 0.27 },
+      { hex: '#F2A65A', role: 'accent', share: 0.15 }
+    ],
+    system: {
+      color_system: {
+        value: 'violet-black base, amber highlight, no third hue',
+        evidence: 'gradient runs #1B1430 to #F2A65A along 162 degrees',
+        location: 'full-bleed',
+        magnitude: '58 / 27 / 15 split',
+        confidence: 0.86,
+        web: '--bg:#1B1430; --accent:#F2A65A; accent on one element per view'
+      },
+      depth: {
+        value: 'three stacked planes separated by blur and shadow',
+        evidence: 'each panel blurs the one behind it; shadow falls down-left',
+        location: 'centre, stepping to bottom-right',
+        magnitude: '10px blur, 20px shadow offset',
+        confidence: 0.78,
+        web: 'backdrop-filter: blur(10px); box-shadow: 0 20px 30px -18px rgb(10 5 25 / .6)'
+      }
+    },
+    build: [
+      'Set the dusk gradient as a fixed full-page background.',
+      'Build one glass panel component; reuse it at three offsets.',
+      'Light every panel from the same corner.'
+    ],
+    avoid: ['opaque cards', 'a second accent colour', 'centred symmetric stacks']
+  };
+
+  var WRAPPER = [
+    'Recreate the visual language described below as a website.',
+    '- "signature" is non-negotiable.',
+    '- "system" is the measured spec; each "web" field is its CSS/layout translation.',
+    '- "build" is the order of work. "avoid" lists hard constraints.',
+    '- Reproduce the design system, not the original content or subject.',
+    '- Where confidence is below 0.5, use judgment.',
+    ''
+  ].join('\n');
+
+  var state = { type: 'fraunces', theme: 'light', paper: 'bone', text: 'ink', accent: 'moss' };
+  try {
+    var saved = JSON.parse(localStorage.getItem('inspi-ex-2') || 'null');
+    if (saved) {
+      Object.keys(OPTIONS).forEach(function (key) {
+        if (OPTIONS[key][saved[key]]) state[key] = saved[key];
+      });
+      if (saved.theme === 'dark' || saved.theme === 'light') state.theme = saved.theme;
+    }
+  } catch (e) {}
+
+  function save() { try { localStorage.setItem('inspi-ex-2', JSON.stringify(state)); } catch (e) {} }
+
+  function press(selector, attr, value) {
+    document.querySelectorAll(selector).forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute(attr) === value));
+    });
+  }
+
+  function accentPhrase() {
+    return state.accent === 'match' ? 'accent matches the text' : ACCENTS[state.accent].toLowerCase() + ' accent';
+  }
+
+  function apply() {
+    root.dataset.type = state.type;
+    root.dataset.theme = state.theme;
+    root.dataset.paper = state.paper;
+    root.dataset.text = state.text;
+    root.dataset.accent = state.accent;
+    press('.face', 'data-set', state.type);
+    press('.sw.paper', 'data-paper', state.paper);
+    press('.sw.text', 'data-text', state.text);
+    press('.sw.accent', 'data-accent', state.accent);
+    var s = SETS[state.type];
+    $('colophon').textContent =
+      s.display + ' for names, ' + s.text + ' for reading, ' + s.mono + ' for JSON. ' +
+      TEXTS[state.text] + ' text on ' + PAPERS[state.paper].toLowerCase() + ' paper, ' + accentPhrase() + '.';
+    $('theme').setAttribute('aria-label', state.theme === 'dark' ? 'Switch to light' : 'Switch to dark');
+    $('themeIcon').setAttribute('d', state.theme === 'dark'
+      ? 'M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z'
+      : 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z');
+    save();
+  }
+
+  function set(key, value) { state[key] = value; apply(); }
+
+  function cycle(key) {
+    var keys = Object.keys(OPTIONS[key]);
+    set(key, keys[(keys.indexOf(state[key]) + 1) % keys.length]);
+  }
+
+  function toggleTheme() {
+    var next = state.theme === 'dark' ? 'light' : 'dark';
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduce) { set('theme', next); return; }
+    var r = $('theme').getBoundingClientRect();
+    var x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(function () { set('theme', next); }).ready.then(function () {
+      root.animate(
+        { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + end + 'px at ' + x + 'px ' + y + 'px)'] },
+        { duration: 560, easing: 'cubic-bezier(.2,.7,.1,1)', pseudoElement: '::view-transition-new(root)' }
+      );
+    });
+  }
+
+  var toastTimer;
+  function toast(message) {
+    var t = $('toast');
+    t.textContent = message;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1600);
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function copy(text) {
+    var done = function (ok) { toast(ok ? 'Copied to clipboard' : 'Copy failed. Select the text and copy it by hand.'); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+    } else {
+      done(fallbackCopy(text));
+    }
+  }
+
+  var jsonText = JSON.stringify(SPEC, null, 2);
+
+  function highlight(src) {
+    var safe = src.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return safe.replace(/("(?:\\.|[^"\\])*")(\s*:)?|(-?\b\d+(?:\.\d+)?\b)/g, function (m, str, colon, num) {
+      if (str) return colon ? '<span class="k">' + str + '</span>' + colon : str;
+      return '<span class="n">' + num + '</span>';
+    });
+  }
+
+  // One block per line, indented with padding, so a wrapped line hangs under its own start.
+  function render(src) {
+    return src.split('\n').map(function (line) {
+      var indent = line.length - line.replace(/^ +/, '').length;
+      return '<span class="ln" style="--i:' + indent + '">' + highlight(line.slice(indent)) + '</span>';
+    }).join('');
+  }
+  $('code').innerHTML = render(jsonText);
+
+  var version = 0;
+  function showVersion(n) {
+    version = (n + NOTES.length) % NOTES.length;
+    var note = $('note');
+    note.classList.add('swap');
+    setTimeout(function () {
+      note.textContent = NOTES[version];
+      note.classList.remove('swap');
+    }, 180);
+    $('ver').textContent = (version + 1) + ' of ' + NOTES.length;
+  }
+  $('note').textContent = NOTES[0];
+
+  document.querySelectorAll('.face').forEach(function (b) {
+    b.addEventListener('click', function () { set('type', b.dataset.set); });
+  });
+  document.querySelectorAll('.sw.paper').forEach(function (b) {
+    b.addEventListener('click', function () { set('paper', b.dataset.paper); });
+  });
+  document.querySelectorAll('.sw.text').forEach(function (b) {
+    b.addEventListener('click', function () { set('text', b.dataset.text); });
+  });
+  document.querySelectorAll('.sw.accent').forEach(function (b) {
+    b.addEventListener('click', function () { set('accent', b.dataset.accent); });
+  });
+  $('theme').addEventListener('click', toggleTheme);
+  $('prev').addEventListener('click', function () { showVersion(version - 1); });
+  $('next').addEventListener('click', function () { showVersion(version + 1); });
+  $('retry').addEventListener('click', function () { showVersion(version + 1); });
+  $('copyPrompt').addEventListener('click', function () { copy(WRAPPER + '\n' + jsonText); });
+  $('cardCopy').addEventListener('click', function () { copy(WRAPPER + '\n' + jsonText); });
+  $('copyJson').addEventListener('click', function () { copy(jsonText); });
+  $('fav').addEventListener('click', function () {
+    this.setAttribute('aria-pressed', String(this.getAttribute('aria-pressed') !== 'true'));
+  });
+  $('more').addEventListener('click', function () {
+    var open = $('json').classList.toggle('open');
+    this.setAttribute('aria-expanded', String(open));
+    this.setAttribute('aria-label', open ? 'Collapse JSON' : 'Show full JSON');
+    if (!open) $('code').scrollTop = 0;
+  });
+  $('pick').addEventListener('click', function () {
+    var s = SETS[state.type];
+    copy('INSPi pick: type = ' + s.label + ' (' + s.display + ' + ' + s.text + ' + ' + s.mono + '), text = ' +
+      TEXTS[state.text] + ', paper = ' + PAPERS[state.paper] + ', accent = ' + ACCENTS[state.accent] +
+      ', viewed in ' + state.theme + ' mode');
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    var i = ['1', '2', '3', '4'].indexOf(e.key);
+    if (i > -1) { set('type', Object.keys(SETS)[i]); return; }
+    var k = e.key.toLowerCase();
+    if (k === 'd') toggleTheme();
+    if (k === 'p') cycle('paper');
+    if (k === 't') cycle('text');
+    if (k === 'a') cycle('accent');
+  });
+
+  apply();
+})();
+</script>
+</body>
+</html>
