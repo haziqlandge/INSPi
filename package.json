@@ -12,10 +12,14 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check-providers": "tsx scripts/check-providers.ts",
-    "analyze": "tsx scripts/analyze.ts"
+    "analyze": "tsx scripts/analyze.ts",
+    "mcp": "tsx scripts/mcp.ts",
+    "fx:index": "node scripts/fx-index.mjs",
+    "palettes": "tsx scripts/palettes.ts"
   },
   "dependencies": {
     "animejs": "^4.5.0",
+    "culori": "^4.0.2",
     "motion": "^13.4.6",
     "nanoid": "^6.0.1",
     "next": "16.3.7",
@@ -26,6 +30,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/culori": "^4.0.1",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
