@@ -153,3 +153,59 @@ export const ChipIcon = (p: IconProps) => (
     <path d="M10 10h4v4h-4ZM9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3" />
   </Svg>
 );
+
+export const CompareIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4.5" width="7" height="15" rx="1.5" />
+    <rect x="13.5" y="4.5" width="7" height="15" rx="1.5" />
+    <path d="M6 9h2M6 12h2M16 9h2M16 12h2M16 15h2" />
+  </Svg>
+);
+
+export const GaugeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4.5 17a8 8 0 1 1 15 0" />
+    <path d="m12 13 3.5-4" />
+    <circle cx="12" cy="13" r="1.2" />
+  </Svg>
+);
+
+export const SparkleIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5c.6 3.9 2.6 5.9 6.5 6.5-3.9.6-5.9 2.6-6.5 6.5-.6-3.9-2.6-5.9-6.5-6.5 3.9-.6 5.9-2.6 6.5-6.5Z" />
+    <path d="M18.5 15.5c.25 1.5 1 2.25 2.5 2.5-1.5.25-2.25 1-2.5 2.5-.25-1.5-1-2.25-2.5-2.5 1.5-.25 2.25-1 2.5-2.5Z" />
+  </Svg>
+);
+
+export const ApertureIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="m14.3 4 -5.8 10M20 9.6H8.6M17.7 18.4 12 8.5M9.7 20l5.8-10M4 14.4h11.4M6.3 5.6 12 15.5" />
+  </Svg>
+);
+
+export const DiceIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="4" width="16" height="16" rx="3.5" />
+    <circle cx="9" cy="9" r="0.9" fill="currentColor" />
+    <circle cx="15" cy="15" r="0.9" fill="currentColor" />
+    <circle cx="15" cy="9" r="0.9" fill="currentColor" />
+    <circle cx="9" cy="15" r="0.9" fill="currentColor" />
+    <circle cx="12" cy="12" r="0.9" fill="currentColor" />
+  </Svg>
+);
+
+export const PaletteIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.9-.9 1.6-2-.3-1.2.5-2.2 1.7-2.2H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9.3-8.5-9.3Z" />
+    <circle cx="8" cy="11" r="1" fill="currentColor" />
+    <circle cx="10.5" cy="7.5" r="1" fill="currentColor" />
+    <circle cx="14.5" cy="7.5" r="1" fill="currentColor" />
+  </Svg>
+);
+
+export const SwapIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5" />
+  </Svg>
+);

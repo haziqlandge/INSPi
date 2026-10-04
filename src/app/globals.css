@@ -16,7 +16,9 @@
   --muted: #765c4e;     /* secondary text */
   --accent: #7f520a;    /* small highlights: mode badge, favourite, JSON keys, focus */
   --danger: #9b2c1f;
+  --chart: #9a6208;     /* bars on the Usage page; checked for contrast and chroma on the light surface */
   --shadow: 59 36 22;
+  --scrim: rgb(59 36 22 / 0.3);   /* behind dialogs */
   --grain-opacity: 0.22;
   --grain-blend: multiply;
   --shimmer: 255 250 238;
@@ -34,7 +36,9 @@
   --muted: #b09a88;
   --accent: #e2b04a;
   --danger: #f0907f;
+  --chart: #b8862e;
   --shadow: 0 0 0;
+  --scrim: rgb(10 5 6 / 0.68);
   --grain-opacity: 0.16;
   --grain-blend: soft-light;
   --shimmer: 246 217 190;
@@ -50,6 +54,8 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-danger: var(--danger);
+  --color-chart: var(--chart);
+  --color-scrim: var(--scrim);
 
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-instrument), system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -82,10 +88,13 @@
   }
 
   /* Paper grain on the page itself, beneath all content. */
+  /* It shifts a few times a second, like film grain, so the paper feels alive without moving anything. */
   body::before {
     content: "";
     position: fixed;
-    inset: 0;
+    inset: -64px;
+    will-change: transform;
+    animation: grain 0.9s steps(1) infinite;
     z-index: -1;
     pointer-events: none;
     opacity: var(--grain-opacity);
@@ -263,6 +272,14 @@
     border-color: var(--head);
     color: var(--bg);
   }
+  /* The hover rule above is as specific as this one and came first; without this, a selected chip
+     turned its text to the heading colour (the same as its fill) when hovered, which hid the label. */
+  a.chip[aria-current="true"]:hover,
+  button.chip[aria-pressed="true"]:hover {
+    background: var(--head);
+    border-color: var(--head);
+    color: var(--bg);
+  }
 
   .badge {
     display: inline-block;
@@ -290,6 +307,26 @@
   }
   .field:hover {
     border-color: var(--muted);
+  }
+  /* The browser's own arrow sits hard against the edge; this one is inset like the text. */
+  select.field {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23765c4e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    background-size: 16px;
+    text-overflow: ellipsis;
+  }
+  :root[data-theme="dark"] select.field {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b09a88' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+  /* One ring on focus: the border turns accent instead of an outline drawn around it. */
+  .field:focus,
+  .field:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
   }
 
   /* JSON: long lines wrap with a hanging indent and never scroll sideways. */
@@ -371,6 +408,17 @@ html.theme-switching::view-transition-new(root) {
   to {
     transform: translateX(100%);
   }
+}
+
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  12% { transform: translate(-31px, 17px); }
+  25% { transform: translate(23px, -41px); }
+  37% { transform: translate(-47px, -9px); }
+  50% { transform: translate(11px, 38px); }
+  62% { transform: translate(44px, 6px); }
+  75% { transform: translate(-13px, -27px); }
+  87% { transform: translate(29px, 49px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

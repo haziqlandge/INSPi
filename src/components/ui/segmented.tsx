@@ -38,6 +38,8 @@ export function Segmented<T extends string>({ options, value, onChange, label, s
             {selected && (
               <motion.span
                 layoutId={`segment-${id}`}
+                // Only slide when the choice changes, not when content above moves the whole control.
+                layoutDependency={value}
                 className="absolute inset-0 rounded-full bg-head"
                 transition={{ type: 'spring', stiffness: 520, damping: 30, mass: 0.6 }}
               />
