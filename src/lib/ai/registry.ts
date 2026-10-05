@@ -26,7 +26,7 @@ export interface ProviderSpec {
   note: string;
 }
 
-export const PROVIDER_IDS: ProviderId[] = ['groq', 'gemini', 'openrouter', 'cloudflare'];
+export const PROVIDER_IDS: ProviderId[] = ['groq', 'gemini', 'openrouter', 'cloudflare', 'pollinations'];
 
 /**
  * Model ids and limits live here and nowhere else. Groq retired its vision model three times in
@@ -104,7 +104,7 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
     apiKey: (env) => env.OPENROUTER_API_KEY,
     fallbackKey: (env) => env.OPENROUTER_API_KEY_FALLBACK,
     vision: {
-      id: 'google/gemma-4-26b-a4b-it:free',
+      id: 'google/gemma-4-31b-it',
       strict: false,
       maxTokensParam: 'max_tokens',
       maxImages: 3,
@@ -113,7 +113,7 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
       maxOutput: 8000,
     },
     text: {
-      id: 'google/gemma-4-26b-a4b-it:free',
+      id: 'google/gemma-4-31b-it',
       strict: false,
       maxTokensParam: 'max_tokens',
       maxImages: 0,
@@ -122,7 +122,7 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
       maxOutput: 8000,
     },
     verified: false,
-    note: 'Free models are limited to about 50 requests a day, and a busy model can be refused for a minute or two. Gemma 4 is pinned to Google AI Studio.',
+    note: 'Free models are limited to about 50 requests a day, and a busy model can be refused for a minute or two. Free models go out by their plain id, without ":free".',
   },
   cloudflare: {
     id: 'cloudflare',
@@ -153,21 +153,70 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
     verified: false,
     note: 'Free allowance of 10,000 neurons a day. Check the connection, then pick a model that reads images.',
   },
-};
-
-/**
- * Request fields a particular model needs on top of its provider's. OpenRouter routes a model to
- * whichever host it likes unless told otherwise; Gemma 4 is pinned to Google AI Studio, with no
- * fallback, so a failure there is reported instead of quietly sent to another host.
- */
-const MODEL_ROUTES: Record<string, Record<string, unknown>> = {
-  'openrouter:google/gemma-4-26b-a4b-it:free': {
-    provider: { only: ['google-ai-studio'], allow_fallbacks: false },
+  pollinations: {
+    id: 'pollinations',
+    label: 'Pollinations',
+    keyEnv: ['POLLINATIONS_API_KEY'],
+    keyUrl: 'https://enter.pollinations.ai/keys',
+    baseUrl: (env) => env.POLLINATIONS_BASE_URL || 'https://gen.pollinations.ai/v1',
+    apiKey: (env) => env.POLLINATIONS_API_KEY,
+    fallbackKey: (env) => env.POLLINATIONS_API_KEY_FALLBACK,
+    // No default: community models come and go, so the person picks one that is healthy today.
+    vision: {
+      id: '',
+      strict: false,
+      maxTokensParam: 'max_tokens',
+      maxImages: 3,
+      tokensPerImage: 1500,
+      tpm: 200000,
+      maxOutput: 8000,
+    },
+    text: {
+      id: '',
+      strict: false,
+      maxTokensParam: 'max_tokens',
+      maxImages: 0,
+      tokensPerImage: 0,
+      tpm: 200000,
+      maxOutput: 8000,
+    },
+    verified: false,
+    note: 'Free (Quest) Pollen. Community models come and go; pick one marked healthy that reads images.',
   },
 };
 
+/**
+ * Request fields a particular model needs on top of its provider's, keyed `provider:model`. Empty
+ * for now: the Gemma 4 pin to Google AI Studio was dropped when free models moved to plain ids.
+ */
+const MODEL_ROUTES: Record<string, Record<string, unknown>> = {};
+
 export function modelRoute(provider: ProviderId, modelId: string): Record<string, unknown> {
   return MODEL_ROUTES[`${provider}:${modelId}`] ?? {};
+}
+
+/**
+ * Models whose behaviour is known, so they keep schema enforcement and the right reasoning switch
+ * whichever job they are picked for. Any other model is sent plain JSON mode.
+ */
+const MODEL_PROFILES: Record<string, Pick<ModelSpec, 'strict' | 'extraBody'>> = {
+  'groq:qwen/qwen3.8-27b': { strict: true, extraBody: { reasoning_effort: 'none' } },
+  'groq:openai/gpt-oss-120b': { strict: true, extraBody: { reasoning_effort: 'low' } },
+  'groq:openai/gpt-oss-20b': { strict: true, extraBody: { reasoning_effort: 'low' } },
+};
+
+/**
+ * OpenRouter lists its free models as `name:free`, but requests with that suffix are refused; the
+ * plain id reaches the same free model. Settings saved before this keep working.
+ */
+export function requestModelId(provider: ProviderId, id: string): string {
+  return provider === 'openrouter' ? id.replace(/:free$/, '') : id;
+}
+
+function withModel(provider: ProviderId, base: ModelSpec, rawId: string): ModelSpec {
+  const id = requestModelId(provider, rawId);
+  const known = MODEL_PROFILES[`${provider}:${id}`] ?? (id === base.id ? base : { strict: false, extraBody: undefined });
+  return { ...base, id, strict: known.strict, extraBody: { ...known.extraBody, ...modelRoute(provider, id) } };
 }
 
 export function hasKeys(id: ProviderId, env: NodeJS.ProcessEnv = process.env): boolean {
@@ -211,20 +260,9 @@ export function providerChain(
     const visionId = overrides[id]?.vision?.trim() || spec.vision.id;
     if (!visionId) continue;
     const textId = overrides[id]?.text?.trim() || spec.text.id || visionId;
-    // An overridden model keeps the provider's limits but cannot be assumed to enforce schemas.
-    const vision = {
-      ...spec.vision,
-      id: visionId,
-      strict: spec.vision.strict && visionId === spec.vision.id,
-      extraBody: { ...(visionId === spec.vision.id ? spec.vision.extraBody : undefined), ...modelRoute(id, visionId) },
-    };
-    const text = {
-      ...spec.text,
-      id: textId,
-      strict: spec.text.strict && textId === spec.text.id,
-      extraBody: { ...(textId === spec.text.id ? spec.text.extraBody : undefined), ...modelRoute(id, textId) },
-    };
-    chain.push({ runtime, label: spec.label, vision, text });
+    // An overridden model keeps the provider's limits; unless it is a known model, it is not
+    // assumed to enforce schemas.
+    chain.push({ runtime, label: spec.label, vision: withModel(id, spec.vision, visionId), text: withModel(id, spec.text, textId) });
   }
   return chain;
 }

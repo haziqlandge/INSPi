@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { dimensionsFor, RUBRIC } from '@/lib/ai/schema/dimensions';
 import {
-  blueprintJsonSchema,
   observationJsonSchema,
-  parseBlueprint,
+  parsePatterns,
   parseObservation,
+  patternsJsonSchema,
   parseTranslation,
   translationJsonSchema,
 } from '@/lib/ai/schema/wire';
 import { buildSpec, mergeObservations, observationDigest } from '@/lib/ai/schema/expand';
 import { composePrompt } from '@/lib/copy/compose';
-import { sampleBlueprint, sampleImageTranslation, sampleObservation, sampleWebTranslation } from './fixtures';
+import { samplePatterns, sampleImageTranslation, sampleObservation, sampleWebTranslation } from './fixtures';
 
 type Json = { [key: string]: unknown };
 
@@ -55,12 +55,12 @@ describe('JSON schemas sent to the model', () => {
     }
   });
 
-  it('ask for the page blueprint on its own or together with the dimensions, strictly', () => {
-    expect(strictViolations(blueprintJsonSchema() as Json)).toEqual([]);
+  it('ask for the page patterns on their own or together with the dimensions, strictly', () => {
+    expect(strictViolations(patternsJsonSchema() as Json)).toEqual([]);
     const both = observationJsonSchema('web', true) as Json;
     expect(strictViolations(both)).toEqual([]);
-    expect(Object.keys(both.properties as object)).toContain('blueprint');
-    expect(Object.keys((observationJsonSchema('web') as Json).properties as object)).not.toContain('blueprint');
+    expect(Object.keys(both.properties as object)).toContain('patterns');
+    expect(Object.keys((observationJsonSchema('web') as Json).properties as object)).not.toContain('patterns');
   });
 
   it('list all 27 dimensions and restrict category to the 30 names', () => {
@@ -73,27 +73,56 @@ describe('JSON schemas sent to the model', () => {
   });
 });
 
-describe('parseBlueprint', () => {
-  it('accepts a blueprint and rejects one without sections', () => {
-    expect(parseBlueprint({ blueprint: sampleBlueprint() }).ok).toBe(true);
-    const bad = parseBlueprint({ blueprint: { canvas: 'x', assets: [] } });
-    expect(bad.ok).toBe(false);
+describe('patterns (web inspiration)', () => {
+  it('accepts patterns, reads an odd importance as medium, and rejects patterns without components', () => {
+    const raw = samplePatterns();
+    (raw.components[0] as { importance: string }).importance = 'CRUCIAL';
+    const parsed = parsePatterns({ patterns: raw });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.data.components[0].importance).toBe('medium');
+    expect(parsePatterns({ patterns: { page: 'x', motif: { what: '', how: '', transform: '' }, voice: '', identity: [] } }).ok).toBe(false);
   });
 
-  it('flows into the spec ahead of the system, and into the digest as an outline only', () => {
-    const observation = sampleObservation('web', { blueprint: sampleBlueprint() });
-    const spec = buildSpec({
-      mode: 'web',
+  const web = () => {
+    const observation = sampleObservation('web', { patterns: samplePatterns() });
+    observation.d.lighting.c = 0.3;
+    return {
       observation,
-      translation: sampleWebTranslation(),
-      identity: { name: 'Glass Dusk', category: 'Landing Page', tags: [] },
-    });
+      spec: buildSpec({ mode: 'web', observation, translation: sampleWebTranslation(), identity: { name: 'Glass Dusk', category: 'Landing Page', tags: [] } }),
+    };
+  };
+
+  it('makes an inspiration spec: patterns after the palette, then system, keep, adapt, avoid', () => {
+    const { spec } = web();
+    expect(spec.inspi).toBe('web/2');
     const keys = Object.keys(spec);
-    expect(keys.indexOf('blueprint')).toBeGreaterThan(keys.indexOf('palette'));
-    expect(keys.indexOf('blueprint')).toBeLessThan(keys.indexOf('system'));
+    expect(keys.indexOf('patterns')).toBeGreaterThan(keys.indexOf('palette'));
+    expect(keys.indexOf('patterns')).toBeLessThan(keys.indexOf('system'));
+    expect(keys.indexOf('keep')).toBeLessThan(keys.indexOf('avoid'));
+    expect(spec.patterns).not.toHaveProperty('identity');
+    expect(spec).not.toHaveProperty('blueprint');
+  });
+
+  it('marks each finding as observed or inferred, and carries its priority', () => {
+    const { spec } = web();
+    expect(spec.system.composition).toMatchObject({ basis: 'observed', priority: 'medium' });
+    expect(spec.system.color_system.priority).toBe('high');
+    expect(spec.system.lighting.basis).toBe('inferred');
+    expect(spec.system.motion_cues.basis).toBe('inferred');
+  });
+
+  it('always rules out the source identity by name, and keeps it out of everything else', () => {
+    const { spec, observation } = web();
+    expect(spec.avoid.at(-1)).toContain('Dusk wordmark');
     const digest = observationDigest(observation, 'web');
-    expect(digest).toContain('Header (flex row');
-    expect(digest).not.toContain('Light after dark');
+    expect(digest).toContain('source identity (never reuse): Dusk wordmark');
+    expect(digest).toContain('Hero [high]');
+  });
+
+  it('tells the builder to use it as inspiration, not to copy it', () => {
+    const prompt = composePrompt(web().spec);
+    expect(prompt).toMatch(/^Use the reference described below as inspiration/);
+    expect(prompt).toContain('never reproduce the reference');
   });
 });
 
@@ -202,9 +231,9 @@ describe('buildSpec', () => {
       translation: sampleWebTranslation(),
       identity,
     });
-    expect(spec.inspi).toBe('web/1');
+    expect(spec.inspi).toBe('web/2');
     expect(Object.keys(spec)).toEqual([
-      'inspi', 'name', 'category', 'tags', 'note', 'signature', 'palette', 'system', 'tokens', 'build', 'avoid',
+      'inspi', 'name', 'category', 'tags', 'note', 'signature', 'palette', 'system', 'tokens', 'keep', 'adapt', 'avoid', 'build',
     ]);
     expect(Object.keys(spec.system)).toEqual([...dimensionsFor('web')]);
     expect(spec.system.composition).toEqual({
@@ -213,9 +242,11 @@ describe('buildSpec', () => {
       location: 'centre',
       magnitude: '50%',
       confidence: 0.7,
+      basis: 'observed',
+      priority: 'medium',
       web: 'composition css',
     });
-    if (spec.inspi === 'web/1') expect(spec.tokens.colors).toEqual({ background: '#1B1430', accent: '#F2A65A' });
+    if (spec.inspi === 'web/2') expect(spec.tokens.colors).toEqual({ background: '#1B1430', accent: '#F2A65A' });
   });
 
   it('expands an image analysis with generator phrasing', () => {
@@ -254,7 +285,7 @@ describe('composePrompt', () => {
       identity: { name: 'Glass Dusk', category: 'Landing Page', tags: ['frosted glass'] },
     });
     const text = composePrompt(spec);
-    expect(text.startsWith('Rebuild the page described below')).toBe(true);
+    expect(text.startsWith('Use the reference described below as inspiration')).toBe(true);
     const json = text.slice(text.indexOf('\n{'));
     expect(JSON.parse(json)).toEqual(spec);
   });
@@ -267,5 +298,134 @@ describe('composePrompt', () => {
       identity: { name: 'Glass Dusk', category: '3D & Render', tags: [] },
     });
     expect(composePrompt(spec)).toMatch(/^Generate an image in the visual style described below/);
+  });
+});
+
+describe('subject modes', () => {
+  const spec = () =>
+    buildSpec({
+      mode: 'image',
+      observation: sampleObservation('image'),
+      translation: sampleImageTranslation(),
+      identity: { name: 'Glass Dusk', category: '3D & Render', tags: [] },
+    });
+  const json = (text: string) => JSON.parse(text.slice(text.indexOf('\n{')));
+
+  it('image specs keep what the reference shows, from the observation', () => {
+    expect(spec().subject).toBe('Three frosted panels over a dusk gradient.');
+  });
+
+  it("model's choice (and Copy prompt) leaves the subject out of the JSON", () => {
+    const text = composePrompt(spec());
+    expect(text).toMatch(/with a subject of your own/);
+    expect(json(text).subject).toBeUndefined();
+  });
+
+  it('recreate names the subject first and keeps it in the JSON', () => {
+    const text = composePrompt(spec(), { mode: 'recreate' });
+    expect(text).toMatch(/^Recreate the reference image described below/);
+    expect(text).toContain('Subject: Three frosted panels over a dusk gradient.');
+    expect(json(text)).toEqual(spec());
+  });
+
+  it('recreate uses an edited subject when given one', () => {
+    expect(composePrompt(spec(), { mode: 'recreate', text: '  A red sun\n over hills ' })).toContain('Subject: A red sun over hills');
+  });
+
+  it("my subject draws the person's subject in the style, without the reference's", () => {
+    const text = composePrompt(spec(), { mode: 'mine', text: 'a lighthouse at dusk' });
+    expect(text).toMatch(/^Generate an image of: a lighthouse at dusk\nRender it in the visual style described below/);
+    expect(json(text).subject).toBeUndefined();
+  });
+
+  it("falls back to model's choice when there is no subject to use", () => {
+    const { subject: _s, ...old } = spec();
+    expect(composePrompt(old, { mode: 'recreate' })).toMatch(/^Generate an image in the visual style/);
+    expect(composePrompt(spec(), { mode: 'mine', text: '  ' })).toMatch(/^Generate an image in the visual style/);
+  });
+});
+
+describe('changes from the reference', () => {
+  const spec = (changes?: string) =>
+    buildSpec({
+      mode: 'image',
+      observation: sampleObservation('image'),
+      translation: sampleImageTranslation(),
+      identity: { name: 'Glass Dusk', category: '3D & Render', tags: [] },
+      changes,
+    });
+
+  it('the spec keeps them, and every prompt states them before the JSON', () => {
+    const s = spec('make it night time, teal not red');
+    expect(s.changes).toBe('make it night time, teal not red');
+    for (const subject of [{ mode: 'model' as const }, { mode: 'recreate' as const }, { mode: 'mine' as const, text: 'a fox' }]) {
+      const text = composePrompt(s, subject);
+      const head = text.slice(0, text.indexOf('\n{'));
+      expect(head).toContain('Changes from the reference. They override the subject, the JSON');
+      expect(head).toContain('keep everything else as it is: make it night time, teal not red');
+      // On the second line, so a model that reads only the start of a long prompt sees it before the subject.
+      expect(head.split('\n')[1]).toContain('make it night time, teal not red');
+    }
+  });
+
+  it('the subject is the translation\'s rewrite when changes were asked for, else the observed gist', () => {
+    const rewritten = { ...sampleImageTranslation(), subject: 'A black sports car on a wet coastal road at sunrise.' };
+    const build = (changes?: string) =>
+      buildSpec({
+        mode: 'image',
+        observation: sampleObservation('image'),
+        translation: rewritten,
+        identity: { name: 'Glass Dusk', category: '3D & Render', tags: [] },
+        changes,
+      });
+    expect((build('make it morning by the coast') as { subject?: string }).subject).toBe(rewritten.subject);
+    // No changes: whatever the model wrote there is ignored in favour of what was observed.
+    expect((build() as { subject?: string }).subject).toBe(sampleObservation('image').gist.trim());
+  });
+
+  it('without changes nothing is added', () => {
+    expect(spec().changes).toBeUndefined();
+    expect(composePrompt(spec())).not.toContain('Changes from the reference');
+  });
+
+  it('are tidied and capped, and reach the translate pass only', async () => {
+    const { readChanges, changesBlock, CHANGES_MAX } = await import('@/lib/ai/prompts/steer');
+    expect(readChanges('  night   time \n\n  no text ')).toBe('night time\nno text');
+    expect(readChanges('x'.repeat(900))).toHaveLength(CHANGES_MAX);
+    expect(readChanges(42)).toBe('');
+    expect(changesBlock('night time', 'image')).toMatch(/"prompt", every "gen" fragment/);
+    expect(changesBlock('', 'image')).toBe('');
+  });
+});
+
+describe("the entry's own subject choice", () => {
+  const spec = (subject?: { mode: 'recreate' | 'mine' | 'model'; text?: string }) =>
+    buildSpec({
+      mode: 'image',
+      observation: sampleObservation('image'),
+      translation: sampleImageTranslation(),
+      identity: { name: 'Glass Dusk', category: '3D & Render', tags: [] },
+      subject,
+    });
+
+  it('Copy prompt follows the choice made when the entry was added', () => {
+    expect(composePrompt(spec({ mode: 'recreate' }))).toMatch(/^Recreate the reference image/);
+    expect(composePrompt(spec({ mode: 'mine', text: 'a red fox' }))).toMatch(/^Generate an image of: a red fox/);
+    expect(composePrompt(spec({ mode: 'model' }))).toMatch(/^Generate an image in the visual style/);
+    expect(composePrompt(spec())).toMatch(/^Generate an image in the visual style/);
+  });
+
+  it('keeps the bookkeeping out of the JSON a model reads', () => {
+    const text = composePrompt(spec({ mode: 'mine', text: 'a red fox' }));
+    expect(text).not.toContain('subjectMode');
+    expect(text).not.toContain('mySubject');
+  });
+
+  it('reads a choice from the browser', async () => {
+    const { readSubjectChoice } = await import('@/lib/copy/compose');
+    expect(readSubjectChoice('recreate', 'ignored')).toEqual({ mode: 'recreate' });
+    expect(readSubjectChoice('mine', '  a  fox ')).toEqual({ mode: 'mine', text: 'a fox' });
+    expect(readSubjectChoice('mine', ' ')).toBeNull();
+    expect(readSubjectChoice('exact', '')).toBeNull();
   });
 });

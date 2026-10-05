@@ -1,7 +1,7 @@
 import { readRateInfo, type RateInfo } from './ratelimit';
 import type { Parsed } from './schema/wire';
 
-export type ProviderId = 'groq' | 'gemini' | 'openrouter' | 'cloudflare';
+export type ProviderId = 'groq' | 'gemini' | 'openrouter' | 'cloudflare' | 'pollinations';
 
 export interface ProviderRuntime {
   id: ProviderId;
@@ -81,9 +81,10 @@ interface RawReply {
   rate: RateInfo;
 }
 
-function kindFor(status: number): ErrorKind {
+function kindFor(status: number, message = ''): ErrorKind {
+  // Groq answers 429 when a request alone exceeds a per-minute limit; waiting cannot fix that.
+  if (status === 413 || /request too large/i.test(message)) return 'too_large';
   if (status === 429) return 'rate_limit';
-  if (status === 413) return 'too_large';
   if (status === 401 || status === 403) return 'auth';
   if (status >= 500) return 'server';
   return 'bad_request';
@@ -132,7 +133,8 @@ async function send<T>(req: ChatRequest<T>, messages: Message[], strict: boolean
   } | null;
 
   if (!response.ok) {
-    throw new ProviderError(kindFor(response.status), errorDetail(payload?.error) || `${req.provider.id} returned ${response.status}`, response.status, rate);
+    const detail = errorDetail(payload?.error) || `${req.provider.id} returned ${response.status}`;
+    throw new ProviderError(kindFor(response.status, detail), detail, response.status, rate);
   }
 
   const choice = payload?.choices?.[0];

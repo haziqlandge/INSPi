@@ -76,6 +76,8 @@ describe('prompts', () => {
     expect(image.system).toContain('camera_lens');
     expect(image.system).not.toContain('responsive_cues');
     expect(translatePrompt({ mode: 'image', digest: 'x', knownTags: [] }).system).toMatch(/image generator/);
+    expect(translatePrompt({ mode: 'image', digest: 'x', knownTags: [], changes: 'night time' }).system).toContain('changes from the reference in the result: "night time"');
+    expect(translatePrompt({ mode: 'image', digest: 'x', knownTags: [] }).system).not.toContain('changes from the reference');
   });
 
   it('names all 30 categories, the premade tags and the collections it may choose from', () => {
@@ -108,15 +110,14 @@ describe('providerChain', () => {
     expect(chain.map((c) => c.runtime.id)).toEqual(['openrouter', 'groq']);
   });
 
-  it('pins Gemma 4 on OpenRouter to Google AI Studio without fallbacks, and only that model', () => {
-    const [pinned] = providerChain(['openrouter'], {}, env);
-    expect(pinned.vision.id).toBe('google/gemma-4-26b-a4b-it:free');
-    expect(pinned.vision.extraBody).toEqual({ provider: { only: ['google-ai-studio'], allow_fallbacks: false } });
-    expect(pinned.text.extraBody).toEqual(pinned.vision.extraBody);
+  it('sends OpenRouter models without the :free suffix, which OpenRouter refuses', () => {
+    const [stock] = providerChain(['openrouter'], {}, env);
+    expect(stock.vision.id).toBe('google/gemma-4-31b-it');
+    expect(stock.vision.extraBody).toEqual({});
 
-    const [other] = providerChain(['openrouter'], { openrouter: { vision: 'some/model:free', text: 'some/model:free' } }, env);
-    expect(other.vision.extraBody).toEqual({});
-    expect(other.text.extraBody).toEqual({});
+    const [picked] = providerChain(['openrouter'], { openrouter: { vision: 'some/model:free', text: 'other/model:free' } }, env);
+    expect(picked.vision.id).toBe('some/model');
+    expect(picked.text.id).toBe('other/model');
   });
 
   it('keeps the Groq reasoning switch only on the model it was written for', () => {
@@ -129,11 +130,11 @@ describe('providerChain', () => {
   it('uses an overridden model but no longer assumes it enforces schemas', () => {
     const chain = providerChain(['openrouter', 'groq'], { openrouter: { vision: 'some/model:free' }, groq: { vision: 'other/vision' } }, env);
     expect(chain.map((c) => [c.runtime.id, c.vision.id, c.vision.strict])).toEqual([
-      ['openrouter', 'some/model:free', false],
+      ['openrouter', 'some/model', false],
       ['groq', 'other/vision', false],
     ]);
     // The text model is chosen separately and keeps its own default.
-    expect(chain[0].text.id).toBe('google/gemma-4-26b-a4b-it:free');
+    expect(chain[0].text.id).toBe('google/gemma-4-31b-it');
     expect(chain[1].text.id).toBe('openai/gpt-oss-120b');
   });
 
@@ -148,14 +149,14 @@ describe('settings', () => {
     const dir = mkdtempSync(join(tmpdir(), 'inspi-settings-'));
     const lib = openLibrary(dir);
     try {
-      expect(readSettings(lib)).toEqual({ order: ['groq', 'gemini', 'openrouter', 'cloudflare'], models: {}, compressDefault: false });
+      expect(readSettings(lib)).toEqual({ order: ['groq', 'gemini', 'openrouter', 'cloudflare', 'pollinations'], models: {}, compressDefault: false, nextInLine: false, imagine: { backend: 'pollinations', model: 'black-forest-labs/flux.1-schnell', auto: 'strongest' } });
 
       const saved = writeSettings(lib, {
         order: ['gemini', 'nonsense', 'gemini'],
         models: { groq: { vision: '  custom/vision  ', text: '' }, nonsense: { vision: 'x' } },
         compressDefault: true,
       });
-      expect(saved.order).toEqual(['gemini', 'groq', 'openrouter', 'cloudflare']);
+      expect(saved.order).toEqual(['gemini', 'groq', 'openrouter', 'cloudflare', 'pollinations']);
       expect(saved.models).toEqual({ groq: { vision: 'custom/vision' } });
       expect(saved.compressDefault).toBe(true);
       expect(readSettings(lib)).toEqual(saved);

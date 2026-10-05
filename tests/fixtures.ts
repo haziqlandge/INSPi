@@ -1,27 +1,33 @@
 import { dimensionsFor } from '@/lib/ai/schema/dimensions';
-import type { Blueprint, ImageTranslation, Observation, WebTranslation } from '@/lib/ai/schema/wire';
+import type { ImageTranslation, Observation, Patterns, WebTranslation } from '@/lib/ai/schema/wire';
 import type { Mode } from '@/lib/types';
 
-export function sampleBlueprint(): Blueprint {
+export function samplePatterns(): Patterns {
   return {
-    canvas: 'Desktop page, 1440 wide, dusk-violet ground, content centred at 960.',
-    sections: [
+    page: 'Desktop, 1440 wide, dusk-violet ground, 960px column; three bands, weight in the hero.',
+    components: [
       {
-        name: 'Header',
-        box: 'top 0, h 80, full width',
-        layout: 'flex row, logo left, 5 links right, 24px gaps',
-        content: 'Logo "Dusk" 28px/700; links "Work", "About" 16px/500 #F2A65A',
-        style: 'bottom border 1px #3A2E5C',
+        name: 'Navigation',
+        role: 'orients and offers one action',
+        structure: 'flex row, 80px tall, mark left, 5 links right, 24px gaps',
+        style: 'hairline bottom rule 1px #3A2E5C, active link in accent',
+        importance: 'medium',
       },
       {
         name: 'Hero',
-        box: 'y 200-640, 960 wide, centred',
-        layout: 'stacked, centre aligned, 24px gaps',
-        content: 'h1 "Light after dark" 88px/500; button "Start" 18px',
+        role: 'states the promise',
+        structure: 'centred stack, 88px headline, 24px gaps, one pill button',
         style: 'button fill #F2A65A, radius 999',
+        importance: 'high',
       },
     ],
-    assets: [{ name: 'Glass panel', look: 'frosted rounded rectangle 1px white 30% stroke', placement: '3, stepped 40px down-right, rotated -4deg' }],
+    motif: {
+      what: 'stepped frosted panels floating over the hero',
+      how: '3 translucent rounded rectangles, 1px 30% white stroke, stepped 40px down-right, rotated -4deg',
+      transform: 'stack the product’s own cards as frosted layers',
+    },
+    voice: 'three-word headline, one plain sentence below',
+    identity: ['Dusk wordmark', 'the headline "Light after dark"'],
   };
 }
 
@@ -73,6 +79,9 @@ export function sampleWebTranslation(): WebTranslation {
       shadow: '0 20px 30px -18px rgb(10 5 25 / .6)',
       motion: '240ms cubic-bezier(.2,.7,.1,1)',
     },
+    priority: Object.fromEntries(dimensionsFor('web').map((key) => [key, key === 'color_system' ? 'high' : 'medium'])) as WebTranslation['priority'],
+    keep: ['one warm accent against violet'],
+    adapt: ['frosted panels → the project’s own cards as layers'],
     build: ['Set the gradient.', 'Build one panel.'],
     avoid: ['opaque cards'],
   };

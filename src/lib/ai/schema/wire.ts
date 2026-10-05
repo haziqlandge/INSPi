@@ -43,11 +43,69 @@ export interface BlueprintAsset {
   placement: string;
 }
 
-/** The concrete page, as opposed to the abstract design system: what to build and where. */
+/**
+ * The concrete page, transcribed: what the first web prompts (web/1) carried. Kept so older entries
+ * still read; new analyses extract `Patterns` instead.
+ */
 export interface Blueprint {
   canvas: string;
   sections: BlueprintSection[];
   assets: BlueprintAsset[];
+}
+
+export type Importance = 'high' | 'medium' | 'low';
+export const IMPORTANCE: readonly Importance[] = ['high', 'medium', 'low'];
+
+/** A building block of the page, described as a reusable pattern rather than a copy of this one. */
+export interface PatternComponent {
+  /** What kind of block it is: "Navigation", "Hero", "Feature cards". */
+  name: string;
+  /** What it does for the page. */
+  role: string;
+  /** How it is arranged: grid or flex, alignment, proportions, sizes in px. */
+  structure: string;
+  /** Fills, borders, radius, shadows, states. */
+  style: string;
+  importance: Importance;
+}
+
+/** The look's signature decorative idea, and how to carry it into a different product. */
+export interface Motif {
+  what: string;
+  how: string;
+  transform: string;
+}
+
+/** The page's transferable grammar (web mode): what to learn from it, not what to copy. */
+export interface Patterns {
+  page: string;
+  components: PatternComponent[];
+  motif: Motif;
+  /** Tone and shape of the copy, never the copy itself. */
+  voice: string;
+  /** Source-specific things seen (logos, brand names, copy, distinctive illustrations) that must not be reused. */
+  identity: string[];
+}
+
+/**
+ * One slice of an observation. A provider that caps output per minute cannot return everything in
+ * one answer, so the analysis is asked for in slices and put back together (see `assembleSlices`).
+ */
+export interface Scope {
+  /** The page's patterns (web mode). */
+  patterns?: boolean;
+  dims?: readonly string[];
+  /** gist, keywords, signature and palette. */
+  meta?: boolean;
+}
+
+export interface SliceResult {
+  patterns?: Patterns;
+  d?: Record<string, WireFinding>;
+  gist?: string;
+  keywords?: string[];
+  signature?: string[];
+  palette?: PaletteColor[];
 }
 
 export interface Observation {
@@ -57,7 +115,7 @@ export interface Observation {
   palette: PaletteColor[];
   d: Record<string, WireFinding>;
   /** Web mode only. */
-  blueprint?: Blueprint;
+  patterns?: Patterns;
 }
 
 export interface TypeTokens {
@@ -91,7 +149,13 @@ interface TranslationBase {
 
 export interface WebTranslation extends TranslationBase {
   web: Record<string, string>;
+  /** How much each dimension matters to the look. */
+  priority: Record<string, Importance>;
   tokens: WebTokens;
+  /** Principles to carry over as they are. */
+  keep: string[];
+  /** Patterns worth using, redesigned around the destination project: "coins → the project's own motif". */
+  adapt: string[];
   build: string[];
   avoid: string[];
 }
@@ -101,6 +165,8 @@ export interface ImageTranslation extends TranslationBase {
   prompt: string;
   negative: string[];
   params: { aspect_ratio: string; medium: string; notes: string };
+  /** What the picture shows with the person's changes applied; empty when they asked for none. */
+  subject?: string;
 }
 
 export type Translation = WebTranslation | ImageTranslation;
@@ -124,28 +190,48 @@ function keyed(keys: readonly string[], value: JsonSchema): JsonSchema {
   return obj(Object.fromEntries(keys.map((k) => [k, value])));
 }
 
-const blueprintSchema = obj({
-  canvas: str,
-  sections: { type: 'array', items: obj({ name: str, box: str, layout: str, content: str, style: str }) },
-  assets: { type: 'array', items: obj({ name: str, look: str, placement: str }) },
+const importance: JsonSchema = { type: 'string', enum: [...IMPORTANCE] };
+
+const patternsSchema = obj({
+  page: str,
+  components: { type: 'array', items: obj({ name: str, role: str, structure: str, style: str, importance }) },
+  motif: obj({ what: str, how: str, transform: str }),
+  voice: str,
+  identity: strings,
 });
 
-/** The page-structure half of a web observation, asked for on its own when the budget is small. */
-export function blueprintJsonSchema(): JsonSchema {
-  return obj({ blueprint: blueprintSchema });
+/** The page-patterns half of a web observation, asked for on its own when the budget is small. */
+export function patternsJsonSchema(): JsonSchema {
+  return obj({ patterns: patternsSchema });
 }
 
-/** The measured-dimensions half; `includeBlueprint` asks for the page structure in the same answer. */
-export function observationJsonSchema(mode: Mode, includeBlueprint = false): JsonSchema {
+/** The measured-dimensions half; `includePatterns` asks for the page patterns in the same answer. */
+export function observationJsonSchema(mode: Mode, includePatterns = false): JsonSchema {
   const finding = obj({ v: str, e: str, l: str, m: str, c: num });
   return obj({
-    ...(includeBlueprint ? { blueprint: blueprintSchema } : {}),
+    ...(includePatterns ? { patterns: patternsSchema } : {}),
     gist: str,
     keywords: strings,
     signature: strings,
     palette: { type: 'array', items: obj({ hex: str, role: str, share: num }) },
     d: keyed(dimensionsFor(mode), finding),
   });
+}
+
+/** The JSON schema for one slice; keys are flat (patterns, d, gist…). */
+export function sliceJsonSchema(mode: Mode, scope: Scope): JsonSchema {
+  const finding = obj({ v: str, e: str, l: str, m: str, c: num });
+  const props: Record<string, JsonSchema> = {};
+  if (scope.patterns) props.patterns = patternsSchema;
+  if (scope.dims?.length) props.d = keyed(scope.dims, finding);
+  if (scope.meta) {
+    props.gist = str;
+    props.keywords = strings;
+    props.signature = strings;
+    props.palette = { type: 'array', items: obj({ hex: str, role: str, share: num }) };
+  }
+  void mode;
+  return obj(props);
 }
 
 export function translationJsonSchema(mode: Mode, collectionNames: readonly string[] = []): JsonSchema {
@@ -160,6 +246,7 @@ export function translationJsonSchema(mode: Mode, collectionNames: readonly stri
     return obj({
       ...base,
       web: keyed(dimensionsFor('web'), str),
+      priority: keyed(dimensionsFor('web'), importance),
       tokens: obj({
         colors: { type: 'array', items: obj({ role: str, hex: str }) },
         type: obj({ display: str, text: str, mono: str, scale: str, weights: str, tracking: str, leading: str }),
@@ -169,6 +256,8 @@ export function translationJsonSchema(mode: Mode, collectionNames: readonly stri
         shadow: str,
         motion: str,
       }),
+      keep: strings,
+      adapt: strings,
       build: strings,
       avoid: strings,
     });
@@ -179,6 +268,7 @@ export function translationJsonSchema(mode: Mode, collectionNames: readonly stri
     prompt: str,
     negative: strings,
     params: obj({ aspect_ratio: str, medium: str, notes: str }),
+    subject: str,
   });
 }
 
@@ -232,21 +322,65 @@ function issuesOf(error: z.ZodError): string[] {
   return error.issues.slice(0, 12).map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`);
 }
 
-const blueprintZ = z.object({
-  canvas: text,
-  sections: z.array(z.object({ name: text, box: text, layout: text, content: text, style: text })),
-  assets: z.array(z.object({ name: text, look: text, placement: text })),
+/** Anything unrecognised counts as medium rather than failing the answer. */
+const importanceZ = z.unknown().transform((v): Importance => {
+  const word = typeof v === 'string' ? v.trim().toLowerCase() : '';
+  return (IMPORTANCE as readonly string[]).includes(word) ? (word as Importance) : 'medium';
 });
 
-export function parseBlueprint(raw: unknown): Parsed<Blueprint> {
-  const result = z.object({ blueprint: blueprintZ }).safeParse(raw);
+const patternsZ = z.object({
+  page: text,
+  components: z.array(z.object({ name: text, role: text, structure: text, style: text, importance: importanceZ })),
+  motif: z.object({ what: text, how: text, transform: text }),
+  voice: text,
+  identity: stringList,
+});
+
+export function parsePatterns(raw: unknown): Parsed<Patterns> {
+  const result = z.object({ patterns: patternsZ }).safeParse(raw);
   if (!result.success) return { ok: false, issues: issuesOf(result.error) };
-  return { ok: true, data: result.data.blueprint };
+  return { ok: true, data: result.data.patterns };
 }
 
-export function parseObservation(mode: Mode, raw: unknown, includeBlueprint = false): Parsed<Observation> {
+export function parseSlice(mode: Mode, raw: unknown, scope: Scope): Parsed<SliceResult> {
+  void mode;
+  const shape: Record<string, z.ZodType> = {};
+  if (scope.patterns) shape.patterns = patternsZ;
+  if (scope.dims?.length) shape.d = keyedZ(scope.dims, findingZ);
+  if (scope.meta) {
+    shape.gist = text;
+    shape.keywords = stringList;
+    shape.signature = stringList;
+    shape.palette = z.array(z.object({ hex, role: text, share }));
+  }
+  const result = z.object(shape).safeParse(raw);
+  if (!result.success) return { ok: false, issues: issuesOf(result.error) };
+  return { ok: true, data: result.data as SliceResult };
+}
+
+/** Puts the slices of one frame back together as a single observation, whatever order they arrived in. */
+export function assembleSlices(slices: SliceResult[]): Observation {
+  const merged: SliceResult = {};
+  const d: Record<string, WireFinding> = {};
+  for (const slice of slices) {
+    Object.assign(d, slice.d ?? {});
+    const { d: _ignored, ...rest } = slice;
+    void _ignored;
+    Object.assign(merged, rest);
+  }
+  return {
+    gist: merged.gist ?? '',
+    keywords: merged.keywords ?? [],
+    signature: merged.signature ?? [],
+    palette: merged.palette ?? [],
+    d,
+    ...(merged.patterns ? { patterns: merged.patterns } : {}),
+  };
+}
+
+export function parseObservation(mode: Mode, raw: unknown, includePatterns = false): Parsed<Observation> {
   const schema = z.object({
-    ...(includeBlueprint ? { blueprint: blueprintZ } : {}),
+    ...(includePatterns ? { patterns: patternsZ } : {}),
     gist: text,
     keywords: stringList,
     signature: stringList,
@@ -282,6 +416,11 @@ export function parseTranslation(mode: Mode, raw: unknown, collectionNames: read
       ? z.object({
           ...base,
           web: keyedZ(dimensionsFor('web'), text),
+          // A missing or partial priority map is filled with "medium" rather than failing the answer.
+          priority: z.unknown().transform((v) => {
+            const given = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+            return Object.fromEntries(dimensionsFor('web').map((key) => [key, importanceZ.parse(given[key])])) as Record<string, Importance>;
+          }),
           tokens: z.object({
             colors: z.array(z.object({ role: text, hex })),
             type: z.object({
@@ -293,6 +432,8 @@ export function parseTranslation(mode: Mode, raw: unknown, collectionNames: read
             shadow: text,
             motion: text,
           }),
+          keep: stringList,
+          adapt: stringList,
           build: stringList,
           avoid: stringList,
         })
@@ -302,6 +443,8 @@ export function parseTranslation(mode: Mode, raw: unknown, collectionNames: read
           prompt: text,
           negative: stringList,
           params: z.object({ aspect_ratio: text, medium: text, notes: text }),
+          // Optional: only asked for when the person gave changes, so a missing one is not an error.
+          subject: z.preprocess((v) => (typeof v === 'string' ? v.trim() : ''), z.string()),
         });
   const result = schema.safeParse(raw);
   if (!result.success) return { ok: false, issues: issuesOf(result.error) };
