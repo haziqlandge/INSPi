@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openLibrary, type Library } from '@/lib/store/library';
 import { buildSpec } from '@/lib/ai/schema/expand';
 import type { Category } from '@/lib/library/categories';
-import { sampleObservation, sampleWebTranslation } from './fixtures';
+import { sampleImageTranslation, sampleObservation, sampleWebTranslation } from './fixtures';
 
 let dir: string;
 let lib: Library;
@@ -250,6 +250,8 @@ describe('auto collections and tag filters', () => {
     const dark = lib.listCollections().find((c) => c.name === 'Dark & Moody')!;
     expect(dark.count).toBe(2);
     expect(b.collections.map((c) => c.name)).toEqual(['Dark & Moody']);
+    // Server components can only hand plain objects to client components.
+    expect(Object.getPrototypeOf(b.collections[0])).toBe(Object.prototype);
     expect(lib.collectionNames()).toEqual(expect.arrayContaining(['Client work', 'Dark & Moody']));
   });
 
@@ -261,5 +263,26 @@ describe('auto collections and tag filters', () => {
     expect(lib.listEntries({ tag: 'flat design,hot pink' }).items.map((e) => e.name)).toEqual(['A']);
     expect(lib.listEntries({ tag: 'hot pink,serene' }).total).toBe(0);
     expect(lib.allTags().find((t) => t.name === 'flat design')?.count).toBe(2);
+  });
+});
+
+describe('subject choice on a version', () => {
+  it('changes what the prompt gives without analysing again, and only for image versions', () => {
+    const entry = lib.createEntry({ mode: 'image', compress: false, images: [image()] });
+    const identity = { name: 'Red Sun', category: 'Illustration' as Category, tags: [] };
+    const spec = buildSpec({ mode: 'image', observation: sampleObservation('image'), translation: sampleImageTranslation(), identity, subject: { mode: 'recreate' } });
+    const saved = lib.applyAnalysis(entry.id, { identity, collections: [], version: { lens: 'balanced', note: '', spec, provider: 'Test', model: 'm', tokensIn: 1, tokensOut: 1, durationMs: 1 } })!;
+    const versionId = saved.versions[0].id;
+    expect(saved.versions[0].spec).toMatchObject({ subjectMode: 'recreate' });
+
+    expect(lib.setVersionSubjectMode(versionId, 'mine', 'a fox')).toBe(true);
+    expect(lib.getEntry(entry.id)!.versions[0].spec).toMatchObject({ subjectMode: 'mine', mySubject: 'a fox' });
+    lib.setVersionSubjectMode(versionId, 'model');
+    const after = lib.getEntry(entry.id)!.versions[0].spec as { subjectMode?: string; mySubject?: string };
+    expect(after.subjectMode).toBe('model');
+    expect(after.mySubject).toBeUndefined();
+
+    const web = analysed('Web One', 'Landing Page', []);
+    expect(lib.setVersionSubjectMode(web!.versions[0].id, 'recreate')).toBe(false);
   });
 });
