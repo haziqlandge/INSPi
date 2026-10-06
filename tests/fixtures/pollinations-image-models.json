@@ -1,0 +1,241 @@
+[
+ {
+  "name": "tongyi-mai/z-image-turbo",
+  "aliases": [
+   "z-image",
+   "z-image-turbo",
+   "zimage"
+  ],
+  "community": false,
+  "paid_only": null,
+  "health": {
+   "status": "healthy",
+   "success_rate": 99.9187404773997,
+   "requests": 9845
+  },
+  "input_modalities": [
+   "text"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "Z-Image Turbo",
+  "description": "Instant, budget-friendly images with crisp upscaled output"
+ },
+ {
+  "name": "black-forest-labs/flux.2-pro",
+  "aliases": [
+   "flux-2-pro"
+  ],
+  "community": false,
+  "paid_only": true,
+  "health": {
+   "status": "healthy",
+   "success_rate": 100,
+   "requests": 41
+  },
+  "input_modalities": [
+   "text",
+   "image"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.2 Pro",
+  "description": "High-fidelity generation and multi-reference editing with strong prompt adherence"
+ },
+ {
+  "name": "black-forest-labs/flux.2-klein-4b",
+  "aliases": [
+   "flux-klein",
+   "klein"
+  ],
+  "community": false,
+  "paid_only": null,
+  "health": {
+   "status": "healthy",
+   "success_rate": 99.96260284218398,
+   "requests": 2674
+  },
+  "input_modalities": [
+   "text",
+   "image"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.2 Klein 4B",
+  "description": "Fast image generation and editing up to 2.4 megapixels"
+ },
+ {
+  "name": "google/gemini-3-pro-image",
+  "aliases": [
+   "nanobanana-pro"
+  ],
+  "community": false,
+  "paid_only": true,
+  "health": {
+   "status": "healthy",
+   "success_rate": 98.07692307692307,
+   "requests": 104
+  },
+  "input_modalities": [
+   "text",
+   "image"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "Nano Banana Pro",
+  "description": "Studio-quality images up to 4K, with reasoning for tricky prompts"
+ },
+ {
+  "name": "black-forest-labs/flux.1-kontext-pro",
+  "aliases": [
+   "kontext"
+  ],
+  "community": false,
+  "paid_only": null,
+  "health": {
+   "status": "healthy",
+   "success_rate": 100,
+   "requests": 362
+  },
+  "input_modalities": [
+   "text",
+   "image"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.1 Kontext Pro",
+  "description": "Edits an existing image from plain instructions \u2014 swap, restyle, refine"
+ },
+ {
+  "name": "black-forest-labs/flux.1-schnell",
+  "aliases": [
+   "flux"
+  ],
+  "community": false,
+  "paid_only": null,
+  "health": {
+   "status": "healthy",
+   "success_rate": 99.95706311721769,
+   "requests": 16303
+  },
+  "input_modalities": [
+   "text"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.1 Schnell",
+  "description": "Fast, high-quality images at a tiny cost"
+ },
+ {
+  "name": "community/MarcosFRG/flux-1-schnell:paid",
+  "aliases": [
+   "MarcosFRG/flux-1-schnell:paid"
+  ],
+  "community": true,
+  "paid_only": true,
+  "health": {
+   "status": "healthy",
+   "success_rate": 100,
+   "requests": 50
+  },
+  "input_modalities": [
+   "text"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.1 Schnell (Paid)",
+  "description": "Ultra-fast 12B distilled transformer \u2014 generates high-quality images in just 1 to 4 steps, optimized for local development and rapid prototyping"
+ },
+ {
+  "name": "community/MarcosFRG/flux-1-schnell",
+  "aliases": [
+   "MarcosFRG/flux-1-schnell"
+  ],
+  "community": true,
+  "paid_only": false,
+  "health": {
+   "status": "healthy",
+   "success_rate": 100,
+   "requests": 50
+  },
+  "input_modalities": [
+   "text"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.1 Schnell",
+  "description": "Ultra-fast 12B distilled transformer \u2014 generates high-quality images in just 1 to 4 steps, optimized for local development and rapid prototyping"
+ },
+ {
+  "name": "community/MarcosFRG/flux-2-klein-4b",
+  "aliases": [
+   "MarcosFRG/flux-2-klein-4b"
+  ],
+  "community": true,
+  "paid_only": false,
+  "health": {
+   "status": "degraded",
+   "success_rate": 94,
+   "requests": 50
+  },
+  "input_modalities": [
+   "text",
+   "image"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "FLUX.2 Klein 4B",
+  "description": "Ultra-fast 4B rectified flow transformer \u2014 sub-second text-to-image generation and multi-reference editing optimized for consumer GPUs"
+ },
+ {
+  "name": "community/chigwell/gpt-image-2",
+  "aliases": [
+   "chigwell/gpt-image-2"
+  ],
+  "community": true,
+  "paid_only": true,
+  "health": {
+   "status": "healthy",
+   "success_rate": 97.05882352941177,
+   "requests": 34
+  },
+  "input_modalities": [
+   "text"
+  ],
+  "output_modalities": [
+   "image"
+  ],
+  "title": "gpt-image-2",
+  "description": null
+ },
+ {
+  "name": "heygen/heygen-video-1",
+  "aliases": [],
+  "community": false,
+  "paid_only": true,
+  "health": {
+   "status": "healthy",
+   "success_rate": 100,
+   "requests": 2
+  },
+  "input_modalities": [
+   "text",
+   "image"
+  ],
+  "output_modalities": [
+   "video",
+   "audio"
+  ],
+  "title": "HeyGen Video 1",
+  "description": "Text and first-frame video with synchronized dialogue, ambience and effects at 480p or 768p"
+ }
+]
