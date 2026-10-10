@@ -8,6 +8,10 @@ import { MAX_IMAGES_COMPRESSED, MAX_IMAGES_PLAIN, packFrames } from '@/lib/media
 import { entryMediaDir } from '@/lib/paths';
 import { library } from '@/lib/store';
 import type { NewImage } from '@/lib/store/library';
+import { paletteForEntry } from '@/lib/media/entry-palette';
+import { readChanges } from '@/lib/ai/prompts/steer';
+import { readSubjectChoice } from '@/lib/copy/compose';
+import { readRun } from '@/lib/ai/run-choice';
 
 export async function GET(request: NextRequest) {
   ensureWorker();
@@ -43,6 +47,19 @@ export async function POST(request: NextRequest) {
   const compress = form.get('compress') === '1';
 
   if (files.length === 0) return fail(400, 'Add at least one image.');
+  // Optional: the provider and models for this one analysis, as JSON { provider, vision?, text? }
+  const runField = form.get('run');
+  let run: ReturnType<typeof readRun> = null;
+  if (typeof runField === 'string' && runField.trim()) {
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(runField);
+    } catch {
+      return fail(400, 'The provider choice could not be read.');
+    }
+    run = readRun({ run: parsed });
+    if (run && 'error' in run) return fail(400, run.error);
+  }
   try {
     packFrames(files.length, compress);
   } catch {
@@ -70,7 +87,12 @@ export async function POST(request: NextRequest) {
 
   const lib = library();
   const entry = lib.createEntry({ id, mode, compress, images });
-  lib.enqueueJob(entry.id, 'analyze');
+  // Measured locally in a few milliseconds; no AI involved.
+  lib.setPalette(entry.id, await paletteForEntry(entry.id, images.map((image) => image.id)));
+  // Tweaks the person wants from the reference, applied when the prompt is written
+  // Image entries: whether the prompt recreates the picture, uses the person's subject, or only the style
+  const subject = mode === 'image' ? readSubjectChoice(form.get('subject'), form.get('subjectText')) : null;
+  lib.enqueueJob(entry.id, 'analyze', null, run, { changes: readChanges(form.get('changes')), subject });
   ensureWorker();
   return ok({ id: entry.id, slug: entry.slug }, { status: 201 });
 }
