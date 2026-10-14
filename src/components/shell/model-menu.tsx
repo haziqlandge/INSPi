@@ -31,7 +31,7 @@ function Models({ provider, onModels }: { provider: ProviderStatus; onModels: (m
         value={provider.visionModel}
         choices={choices.vision}
         fallback={provider.defaultVision}
-        listed={Boolean(listing?.ok)}
+        listed={Boolean(listing?.ok)} failed={listing?.ok === false}
         onChange={(vision) => onModels({ vision, text: provider.textModel })}
       />
       <ModelPicker
@@ -39,7 +39,7 @@ function Models({ provider, onModels }: { provider: ProviderStatus; onModels: (m
         value={provider.textModel}
         choices={choices.text}
         fallback={provider.defaultText || provider.defaultVision}
-        listed={Boolean(listing?.ok)}
+        listed={Boolean(listing?.ok)} failed={listing?.ok === false}
         onChange={(text) => onModels({ vision: provider.visionModel, text })}
       />
       {listing && !listing.ok && <p className="text-sm text-danger">{listing.message}</p>}
@@ -169,7 +169,7 @@ export function ModelMenu() {
                 )}
 
                 <p className="mt-4 text-[0.8125rem] text-muted">
-                  If this one fails, the analysis fails; no other provider steps in.{' '}
+                  If this one fails, the analysis stops, unless “Use the next one in line” is on in Settings.{' '}
                   <Link href="/settings" className="text-ink underline decoration-accent underline-offset-4" onClick={() => setOpen(false)}>
                     All settings
                   </Link>
