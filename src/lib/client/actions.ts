@@ -1,4 +1,4 @@
-import type { EntryDetail } from '@/lib/types';
+import type { EntryDetail, RunChoice, Steer } from '@/lib/types';
 import { announceChange, api } from './api';
 
 /** Mutations shared by cards and the entry page. Each tells open lists to refresh. */
@@ -18,8 +18,9 @@ export async function updateEntry(
   return entry;
 }
 
-export async function retryEntry(id: string): Promise<EntryDetail> {
-  const entry = await api<EntryDetail>(`/api/entries/${id}/retry`, { method: 'POST' });
+export async function retryEntry(id: string, steer?: Steer, run?: RunChoice): Promise<EntryDetail> {
+  const body = steer || run ? { ...(steer ?? {}), ...(run ? { run } : {}) } : undefined;
+  const entry = await api<EntryDetail>(`/api/entries/${id}/retry`, { method: 'POST', ...(body ? { json: body } : {}) });
   announceChange();
   return entry;
 }

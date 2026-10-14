@@ -42,7 +42,8 @@ export function useEntries(query: string): { data: EntryList | undefined; error:
 
   useEffect(() => {
     latest.current = query;
-    setData(cache.get(query));
+    // Keep showing the previous list until the new one arrives, so the page (and any open panel) does not flash away.
+    setData((previous) => cache.get(query) ?? previous);
     void load();
     window.addEventListener(LIBRARY_CHANGED, load);
     return () => window.removeEventListener(LIBRARY_CHANGED, load);
