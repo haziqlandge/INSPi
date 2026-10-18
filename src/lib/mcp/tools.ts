@@ -99,11 +99,12 @@ export const TOOLS: Tool[] = [
   tool(
     'list_models',
     'List image and text models',
-    'Lists the models INSPi can use in two separate sections, so you never search for them: IMAGE MODELS (make pictures; Pollinations official and community, with health and whether they take a reference image) and TEXT MODELS (read images and write prompts; per provider that has a key, with vision or text-only marked). The current choices are marked. kind shows one section; search filters by name.',
+    'Lists the models INSPi can use, separated so you never search for them. Default layout (group_by "kind"): an IMAGE MODELS section (make pictures; with health and whether they take a reference image), then a TEXT MODELS section (read images and write prompts; vision or text-only marked), each split by provider. group_by "provider" turns it round: one block per provider (Pollinations, Groq, Gemini, OpenRouter, Cloudflare), each with its image models and its text models. The current choices are marked. kind keeps one side; provider keeps one provider; search filters by name.',
     {
-      kind: { type: 'string', enum: ['all', 'image', 'text'], description: '"image" for picture makers, "text" for models that read images and write text, "all" (default) for both sections.' },
+      kind: { type: 'string', enum: ['all', 'image', 'text'], description: '"image" for picture makers, "text" for models that read images and write text, "all" (default) for both.' },
+      group_by: { type: 'string', enum: ['kind', 'provider'], description: '"kind" (default): image then text, each by provider. "provider": each provider, then its image and text models.' },
+      provider: { type: 'string', enum: PROVIDER_ENUM, description: 'Only this provider, for image and text alike.' },
       search: { type: 'string', description: 'Only models whose id contains this.' },
-      provider: { type: 'string', enum: PROVIDER_ENUM, description: 'Only this provider’s text models.' },
     },
     [],
     { network: true },

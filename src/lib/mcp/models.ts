@@ -42,82 +42,134 @@ export async function currentImageModel(ctx: ToolContext): Promise<{ backend: Ba
 const modelLine = (m: ImageModel, current: boolean) =>
   `- ${m.id} — ${m.label} · ${m.health}${m.successRate !== null ? ` ${m.successRate}%` : ''}${m.acceptsImage ? ' · takes a reference image' : ''}${current ? '  ← current' : ''}`;
 
-async function imageSection(ctx: ToolContext, search: string | undefined): Promise<string> {
-  const env = envOf(ctx);
+const visionFirst = (a: ListedModel, b: ListedModel) => Number(b.vision === true) - Number(a.vision === true) || a.id.localeCompare(b.id);
+const indented = (lines: string[], by: string) => lines.map((line) => (line ? `${by}${line}` : line));
+
+/** Image models are made by Pollinations only; it is the one provider with an image side. */
+const MAKES_IMAGES: ProviderId = 'pollinations';
+
+/** The choice line: what generate_image uses when a call names no model. */
+async function imageChoice(ctx: ToolContext): Promise<string> {
   const settings = readSettings(ctx.lib);
   const now = await currentImageModel(ctx).catch(() => null);
-  const lines = [
-    'IMAGE MODELS — these make pictures (generate_image; pick one with set_model kind "image")',
-    settings.imagine.auto
-      ? `Choice: AutoPick "${settings.imagine.auto}"${now ? `, which is ${now.model} right now` : ''}. Modes: ${AUTO_MODES.join(', ')}.`
-      : `Choice: ${settings.imagine.model} on ${BACKEND_LABELS[settings.imagine.backend]}.`,
-  ];
+  return settings.imagine.auto
+    ? `Choice: AutoPick "${settings.imagine.auto}"${now ? `, which is ${now.model} right now` : ''}. Modes: ${AUTO_MODES.join(', ')}.`
+    : `Choice: ${settings.imagine.model} on ${BACKEND_LABELS[settings.imagine.backend]}.`;
+}
+
+/** Pollinations' image models, one group per backend (official, community, keyless). */
+async function pollinationsImageLines(ctx: ToolContext, search: string | undefined): Promise<string[]> {
+  const env = envOf(ctx);
+  const now = await currentImageModel(ctx).catch(() => null);
+  const lines: string[] = [];
   for (const backend of BACKEND_IDS) {
     if (!backendAvailable(backend, env)) {
-      lines.push('', `${BACKEND_LABELS[backend]}: needs POLLINATIONS_API_KEY in .env.`);
+      lines.push(`${BACKEND_LABELS[backend]}: needs POLLINATIONS_API_KEY in .env.`, '');
       continue;
     }
     let models: ImageModel[];
     try {
       models = await imageModelsOf(ctx, backend);
     } catch (error) {
-      lines.push('', `${BACKEND_LABELS[backend]}: ${error instanceof Error ? error.message : 'the list could not be read.'}`);
+      lines.push(`${BACKEND_LABELS[backend]}: ${error instanceof Error ? error.message : 'the list could not be read.'}`, '');
       continue;
     }
     if (search) models = models.filter((m) => `${m.id} ${m.label}`.toLowerCase().includes(search.toLowerCase()));
-    lines.push('', `${BACKEND_LABELS[backend]} (backend "${backend}", ${models.length} models):`);
-    lines.push(...models.map((m) => modelLine(m, now?.backend === backend && now.model === m.id)));
+    lines.push(`${BACKEND_LABELS[backend]} (backend "${backend}", ${models.length} ${models.length === 1 ? 'model' : 'models'}):`);
+    lines.push(...indented(models.map((m) => modelLine(m, now?.backend === backend && now.model === m.id)), '  '), '');
   }
-  return lines.join('\n');
+  while (lines.at(-1) === '') lines.pop();
+  return lines;
 }
 
-const visionFirst = (a: ListedModel, b: ListedModel) => Number(b.vision === true) - Number(a.vision === true) || a.id.localeCompare(b.id);
-
-async function textSection(ctx: ToolContext, search: string | undefined, only: ProviderId | undefined): Promise<string> {
+/** One provider's text models: its vision and text picks, then what it offers. */
+async function providerTextLines(ctx: ToolContext, id: ProviderId, search: string | undefined): Promise<string[]> {
   const env = envOf(ctx);
   const settings = readSettings(ctx.lib);
-  const lines = [
-    'TEXT MODELS — these read images and write text (analyze_image, write_prompt; pick with set_model kind "text")',
-    'They never make pictures. A provider has a vision model (reads images) and a text model (writes the prompt).',
-  ];
+  const spec = PROVIDERS[id];
+  if (!hasKeys(id, env)) return [`needs ${spec.keyEnv.join(' and ')} in .env.`];
+  const vision = settings.models[id]?.vision || spec.vision.id;
+  const text = settings.models[id]?.text || spec.text.id || vision;
+  const lines = [`vision ${vision || 'not chosen'}, text ${text || 'not chosen'}`];
+  const listing = await (ctx.deps?.textModels ?? ((p: ProviderId) => listModels(p, env)))(id).catch(() => null);
+  if (!listing?.ok) return [...lines, listing?.message ?? 'The model list could not be read.'];
+  let models = [...listing.models].sort(visionFirst);
+  if (search) models = models.filter((m) => m.id.toLowerCase().includes(search.toLowerCase()));
+  const shown = models.slice(0, TEXT_LIST_LIMIT);
+  for (const m of shown) {
+    const tags = [m.vision === true ? 'vision' : m.vision === false ? 'text only' : 'vision unknown', m.free ? 'free' : '', m.health ?? ''].filter(Boolean).join(' · ');
+    lines.push(`- ${m.id} — ${tags}${m.id === vision || m.id === text ? '  ← current' : ''}`);
+  }
+  if (models.length > shown.length) lines.push(`… ${models.length - shown.length} more; narrow with search.`);
+  return lines;
+}
+
+const IMAGE_HEADING = 'IMAGE MODELS — these make pictures (generate_image; pick one with set_model kind "image")';
+const TEXT_HEADING = 'TEXT MODELS — these read images and write text (analyze_image, write_prompt; pick with set_model kind "text")';
+
+/** What a provider's heading says: its name and whether it is the one in use for text. */
+function providerHeading(ctx: ToolContext, id: ProviderId): string {
+  const env = envOf(ctx);
+  const inUse = readSettings(ctx.lib).order.find((p) => hasKeys(p, env)) === id;
+  return `${PROVIDERS[id].label} (${id})${inUse ? '  ← current text provider' : ''}`;
+}
+
+/** Image models first, text models second; inside each, one block per provider. */
+async function byKind(ctx: ToolContext, kind: 'all' | 'image' | 'text', search: string | undefined, only: ProviderId | undefined): Promise<string> {
+  const settings = readSettings(ctx.lib);
+  const out: string[] = [];
+
+  if (kind !== 'text') {
+    const lines = [IMAGE_HEADING, await imageChoice(ctx), ''];
+    if (!only || only === MAKES_IMAGES) {
+      lines.push(`Provider: ${PROVIDERS[MAKES_IMAGES].label} (${MAKES_IMAGES})`, ...indented(await pollinationsImageLines(ctx, search), '  '));
+    }
+    const textOnly = settings.order.filter((id) => id !== MAKES_IMAGES && (!only || only === id));
+    if (textOnly.length) lines.push('', `No image models from: ${textOnly.join(', ')} (they only read images and write text).`);
+    out.push(lines.join('\n'));
+  }
+
+  if (kind !== 'image') {
+    const lines = [TEXT_HEADING, 'They never make pictures. A provider has a vision model (reads images) and a text model (writes the prompt).'];
+    for (const id of settings.order) {
+      if (only && id !== only) continue;
+      lines.push('', `Provider: ${providerHeading(ctx, id)}`, ...indented(await providerTextLines(ctx, id, search), '  '));
+    }
+    out.push(lines.join('\n'));
+  }
+  return out.join('\n\n');
+}
+
+/** One block per provider, each with its image models and its text models. */
+async function byProvider(ctx: ToolContext, kind: 'all' | 'image' | 'text', search: string | undefined, only: ProviderId | undefined): Promise<string> {
+  const settings = readSettings(ctx.lib);
+  const out: string[] = [];
   for (const id of settings.order) {
     if (only && id !== only) continue;
-    const spec = PROVIDERS[id];
-    if (!hasKeys(id, env)) {
-      lines.push('', `${spec.label} (${id}): needs ${spec.keyEnv.join(' and ')} in .env.`);
-      continue;
+    const lines = [`PROVIDER: ${providerHeading(ctx, id)}`];
+    if (kind !== 'text') {
+      lines.push('  IMAGE MODELS (make pictures)');
+      if (id === MAKES_IMAGES) lines.push(`    ${await imageChoice(ctx)}`, ...indented(await pollinationsImageLines(ctx, search), '    '));
+      else lines.push('    none: this provider only reads images and writes text.');
     }
-    const vision = settings.models[id]?.vision || spec.vision.id;
-    const text = settings.models[id]?.text || spec.text.id || vision;
-    const inUse = settings.order.find((p) => hasKeys(p, env)) === id;
-    lines.push('', `${spec.label} (${id})${inUse ? '  ← current provider' : ''}: vision ${vision || 'not chosen'}, text ${text || 'not chosen'}`);
-    const listing = await (ctx.deps?.textModels ?? ((p: ProviderId) => listModels(p, env)))(id).catch(() => null);
-    if (!listing?.ok) {
-      lines.push(`  ${listing?.message ?? 'The model list could not be read.'}`);
-      continue;
+    if (kind !== 'image') {
+      lines.push('  TEXT MODELS (read images, write text)', ...indented(await providerTextLines(ctx, id, search), '    '));
     }
-    let models = [...listing.models].sort(visionFirst);
-    if (search) models = models.filter((m) => m.id.toLowerCase().includes(search.toLowerCase()));
-    const shown = models.slice(0, TEXT_LIST_LIMIT);
-    for (const m of shown) {
-      const tags = [m.vision === true ? 'vision' : m.vision === false ? 'text only' : 'vision unknown', m.free ? 'free' : '', m.health ?? ''].filter(Boolean).join(' · ');
-      lines.push(`  - ${m.id} — ${tags}${m.id === vision || m.id === text ? '  ← current' : ''}`);
-    }
-    if (models.length > shown.length) lines.push(`  … ${models.length - shown.length} more; narrow with search.`);
+    out.push(lines.join('\n'));
   }
-  return lines.join('\n');
+  return out.join('\n\n');
 }
 
 export async function listModelsTool(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {
   const kind = args.kind === undefined ? 'all' : args.kind;
   if (kind !== 'all' && kind !== 'image' && kind !== 'text') return problem('kind is "image", "text" or "all".');
-  const search = str(args.search);
+  const groupBy = args.group_by === undefined ? 'kind' : args.group_by;
+  if (groupBy !== 'kind' && groupBy !== 'provider') return problem('group_by is "kind" (image, then text, each by provider) or "provider" (each provider, then its image and text models).');
   const provider = str(args.provider);
   if (provider && !isProviderId(provider)) return problem(`Unknown provider "${provider}". Providers: ${Object.keys(PROVIDERS).join(', ')}.`);
-  const sections: string[] = [];
-  if (kind !== 'text') sections.push(await imageSection(ctx, search));
-  if (kind !== 'image') sections.push(await textSection(ctx, search, provider as ProviderId | undefined));
-  return ok(sections.join('\n\n'));
+  const search = str(args.search);
+  const only = provider as ProviderId | undefined;
+  return ok(await (groupBy === 'provider' ? byProvider : byKind)(ctx, kind, search, only));
 }
 
 export async function setModelTool(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {

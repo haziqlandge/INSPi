@@ -131,6 +131,44 @@ describe('list_models', () => {
     expect(texts).not.toContain('IMAGE MODELS');
   });
 
+  it('splits each section by provider, with image models under Pollinations only', async () => {
+    const out = text(await callTool(ctxWith(), 'list_models', {}));
+    const images = sectionOf(out, 'IMAGE MODELS');
+    expect(images).toMatch(/Provider: Pollinations/);
+    expect(images).toContain('No image models from:');
+    expect(images).toContain('groq');
+    const texts = sectionOf(out, 'TEXT MODELS');
+    expect(texts).toMatch(/Provider: Groq/);
+    expect(texts).not.toContain(GPT_IMAGE_2.id);
+  });
+
+  it('group_by provider gives one block per provider with its image and text models inside', async () => {
+    const out = text(await callTool(ctxWith(), 'list_models', { group_by: 'provider' }));
+    const blocks = out.split(new RegExp(String.fromCharCode(10) + String.fromCharCode(10) + "(?=PROVIDER: )"));
+    const groq = blocks.find((b) => b.startsWith('PROVIDER: Groq'));
+    const pollinations = blocks.find((b) => b.startsWith('PROVIDER: Pollinations'));
+    expect(groq).toBeDefined();
+    expect(pollinations).toBeDefined();
+    // Groq reads and writes text only: its image side says so and holds no picture model
+    expect(groq).toMatch(/IMAGE MODELS[\s\S]*none/);
+    expect(groq).toContain('qwen/qwen3.8-27b');
+    expect(groq).not.toContain(GPT_IMAGE_2.id);
+    // Pollinations has both sides
+    expect(pollinations).toContain(GPT_IMAGE_2.id);
+    expect(pollinations).toMatch(/TEXT MODELS/);
+  });
+
+  it('provider keeps one provider for image and text alike, and kind still narrows inside it', async () => {
+    const groq = text(await callTool(ctxWith(), 'list_models', { provider: 'groq' }));
+    expect(groq).toContain('qwen/qwen3.8-27b');
+    expect(groq).not.toContain(GPT_IMAGE_2.id);
+    const pollinationsImages = text(await callTool(ctxWith(), 'list_models', { provider: 'pollinations', kind: 'image', group_by: 'provider' }));
+    expect(pollinationsImages).toContain(GPT_IMAGE_2.id);
+    expect(pollinationsImages).not.toContain('PROVIDER: Groq');
+    expect(pollinationsImages).not.toContain('TEXT MODELS');
+    expect((await callTool(ctxWith(), 'list_models', { group_by: 'sideways' })).isError).toBe(true);
+  });
+
   it('lists text models only for providers that have a key', async () => {
     const without = text(await callTool(ctxWith({}, { POLLINATIONS_API_KEY: 'k', GROQ_API_KEY: 'g' }), 'list_models', { kind: 'text' }));
     expect(without).toContain('qwen/qwen3.8-27b');
@@ -145,14 +183,14 @@ describe('list_models', () => {
     const before = text(await callTool(ctxWith(), 'list_models', {}));
     expect(before).toContain('AutoPick "strongest"');
     const lines = (out: string) => out.split(String.fromCharCode(10));
-    expect(lines(before).find((line) => line.startsWith(`- ${Z_IMAGE.id}`))).toMatch(/current/i);
-    expect(lines(before).find((line) => line.startsWith(`- ${FLUX.id}`)) ?? '').not.toMatch(/current/i);
+    expect(lines(before).find((line) => line.trim().startsWith(`- ${Z_IMAGE.id}`))).toMatch(/current/i);
+    expect(lines(before).find((line) => line.trim().startsWith(`- ${FLUX.id}`)) ?? '').not.toMatch(/current/i);
     expect(lines(before).some((line) => /groq/i.test(line) && /current/i.test(line))).toBe(true);
 
     await callTool(ctxWith(), 'set_model', { kind: 'image', model: FLUX.id });
     const after = text(await callTool(ctxWith(), 'list_models', { kind: 'image' }));
-    expect(lines(after).find((line) => line.startsWith(`- ${FLUX.id}`))).toMatch(/current/i);
-    expect(lines(after).find((line) => line.startsWith(`- ${Z_IMAGE.id}`)) ?? '').not.toMatch(/current/i);
+    expect(lines(after).find((line) => line.trim().startsWith(`- ${FLUX.id}`))).toMatch(/current/i);
+    expect(lines(after).find((line) => line.trim().startsWith(`- ${Z_IMAGE.id}`)) ?? '').not.toMatch(/current/i);
   });
 });
 
