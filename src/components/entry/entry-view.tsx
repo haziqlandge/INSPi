@@ -4,32 +4,40 @@ import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useToast } from '@/components/feedback/toast';
+import { copyText, useToast } from '@/components/feedback/toast';
 import { CopyButton } from '@/components/ui/copy-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CompareIcon,
   FolderIcon,
   HeartIcon,
   PencilIcon,
   RetryIcon,
   TrashIcon,
 } from '@/components/ui/icons';
-import { lensById } from '@/lib/ai/prompts/lenses';
 import { deleteEntry, restoreEntry, retryEntry, setFavorite, updateEntry } from '@/lib/client/actions';
 import { api, LIBRARY_CHANGED } from '@/lib/client/api';
 import { toQuery } from '@/lib/client/filters';
 import { useCountdown } from '@/lib/client/use-countdown';
+import type { ImageSpec } from '@/lib/ai/schema/display';
 import { composePrompt, specJson } from '@/lib/copy/compose';
-import type { EntryDetail } from '@/lib/types';
+import type { EntryDetail, RunChoice, Steer } from '@/lib/types';
 import { CollectionsDialog } from './collections-dialog';
+import { CompareView } from './compare-view';
 import { EditDialog } from './edit-dialog';
 import { ImageStack } from './image-stack';
 import { JsonBlock } from './json-block';
 import { MoreEntries } from './more-entries';
+import { RetryDialog } from './retry-dialog';
 import { ShredSwap } from './shred-swap';
+import { passLabel } from './version-label';
+import { useVisualize, VisualizeButton, VisualizePanel } from './visualize-panel';
+import { PaletteSheet } from '@/components/palette/palette-sheet';
+import { PaletteDots } from '@/components/palette/palette-strip';
+import { PromptSubject } from './prompt-subject';
 
 const POLL_MS = 2000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -49,6 +57,9 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
   const [arrivedId, setArrivedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [collecting, setCollecting] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const versionCount = useRef(initial.versions.length);
 
@@ -86,6 +97,7 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
   const version = entry.versions[index];
   const json = useMemo(() => (version ? specJson(version.spec) : ''), [version]);
   const isActive = version?.id === entry.activeVersionId;
+  const viz = useVisualize(entry.id, entry.mode === 'image' ? version : undefined);
 
   async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
@@ -105,9 +117,12 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
     setViewedId(next.id);
   }
 
-  const retry = () =>
+  const retry = (steer?: Steer, choice?: RunChoice) =>
     run(async () => {
-      setEntry(await retryEntry(entry.id));
+      setEntry(await retryEntry(entry.id, steer, choice));
+      setRetrying(false);
+      if (steer) toast.show('Guided retry queued');
+      else if (choice) toast.show('Retry queued with another model');
     });
 
   const toggleFavorite = () =>
@@ -115,11 +130,11 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
       setEntry(await setFavorite(entry.id, !entry.favorite));
     });
 
-  const makeActive = () =>
+  const makeActive = (target = version) =>
     run(async () => {
-      if (!version) return;
-      setEntry(await updateEntry(entry.id, { activeVersionId: version.id }));
-      toast.show(`Version ${version.n} is now the one cards copy`);
+      if (!target) return;
+      setEntry(await updateEntry(entry.id, { activeVersionId: target.id }));
+      toast.show(`Version ${target.n} is now the one cards copy`);
     });
 
   const remove = () =>
@@ -143,6 +158,20 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
           name={entry.name}
           developing={pending && entry.versions.length === 0}
           failed={entry.status === 'failed'}
+          footer={
+            entry.palette && entry.palette.length > 0 ? (
+              <PaletteDots
+                palette={entry.palette}
+                kept={entry.palettes.length}
+                onOpen={() => setPaletteOpen(true)}
+                onCopy={(hex) =>
+                  void copyText(hex).then((done) =>
+                    done ? toast.show(`Copied ${hex}`) : toast.show('Copying was blocked. Select the text and copy it by hand.', { tone: 'error' }),
+                  )
+                }
+              />
+            ) : null
+          }
         />
 
         <article className="min-w-0">
@@ -197,7 +226,7 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
                 <h1 className="display text-[clamp(2.75rem,5.4vw,5rem)] leading-[0.98] text-muted">Could not be analyzed</h1>
                 <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-relaxed text-ink">{entry.error}</p>
                 <div className="mt-6 flex gap-2">
-                  <button type="button" className="btn btn-primary" onClick={retry} disabled={busy}>
+                  <button type="button" className="btn btn-primary" onClick={() => setRetrying(true)} disabled={busy}>
                     <RetryIcon size={16} />
                     Retry
                   </button>
@@ -273,13 +302,19 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
                 <CopyButton variant="primary" label="Copy prompt" text={() => composePrompt(version.spec)}>
                   Copy prompt
                 </CopyButton>
-                <button type="button" className="btn" onClick={retry} disabled={busy || pending}>
+                <button type="button" className="btn" onClick={() => setRetrying(true)} disabled={busy || pending}>
                   <RetryIcon size={16} className={pending ? 'motion-safe:animate-spin' : ''} />
                   {pending ? 'Retrying' : 'Retry'}
                 </button>
+                {/* Visualize makes images from image prompts only; web prompts describe sites. */}
+                {entry.mode === 'image' && <VisualizeButton state={viz} />}
 
                 {entry.versions.length > 1 && (
                   <div className="ml-auto flex items-center text-[0.8125rem] tabular-nums text-muted">
+                    <button type="button" className="mr-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 hover:text-head" onClick={() => setComparing(true)}>
+                      <CompareIcon size={16} />
+                      Compare
+                    </button>
                     <button type="button" className="icon-btn h-8 w-8" onClick={() => step(-1)} aria-label="Previous version">
                       <ChevronLeftIcon size={16} />
                     </button>
@@ -292,6 +327,10 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
                   </div>
                 )}
               </div>
+
+              {version.spec.inspi === 'image/1' && (
+                <PromptSubject entryId={entry.id} versionId={version.id} spec={version.spec as ImageSpec} onSaved={setEntry} />
+              )}
 
               {pending && (
                 <p className="mt-3 text-sm text-muted" aria-live="polite">
@@ -308,7 +347,7 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
                 <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
                   You are looking at an older version. Cards copy version{' '}
                   {entry.versions.find((v) => v.id === entry.activeVersionId)?.n}.
-                  <button type="button" className="text-ink underline decoration-accent underline-offset-4" onClick={makeActive} disabled={busy}>
+                  <button type="button" className="text-ink underline decoration-accent underline-offset-4" onClick={() => makeActive()} disabled={busy}>
                     Use this one instead
                   </button>
                 </p>
@@ -317,13 +356,16 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
               <JsonBlock json={json} />
 
               <p className="mt-8 text-[0.8125rem] leading-relaxed text-muted">
-                Version {version.n}, {lensById(version.lens).label.toLowerCase()} pass. Analysed with {version.provider} (
-                {version.model}) on {shortDate(version.createdAt)}.
+                Version {version.n}, {passLabel(version, entry.mode)}. Analysed with {version.provider} ({version.model}) on{' '}
+                {shortDate(version.createdAt)}.
+                {version.steer?.note && <span className="mt-1 block">Your note: “{version.steer.note}”</span>}
               </p>
             </>
           )}
         </article>
       </div>
+
+      {entry.mode === 'image' && <VisualizePanel state={viz} entryName={entry.name} />}
 
       <MoreEntries entryId={entry.id} tags={entry.tags} />
 
@@ -337,6 +379,35 @@ export function EntryView({ initial }: { initial: EntryDetail }) {
           if (saved.slug !== entry.slug) router.replace(`/e/${saved.slug}`);
         }}
       />
+      <RetryDialog
+        open={retrying}
+        onClose={() => setRetrying(false)}
+        mode={entry.mode}
+        nextVersion={entry.versions.length + 1}
+        busy={busy}
+        firstTry={entry.versions.length === 0}
+        onRetry={(steer, choice) => void retry(steer, choice)}
+      />
+      <CompareView
+        open={comparing}
+        onClose={() => setComparing(false)}
+        mode={entry.mode}
+        versions={entry.versions}
+        activeVersionId={entry.activeVersionId}
+        viewedId={viewedId}
+        busy={busy}
+        onUse={(id) => void makeActive(entry.versions.find((v) => v.id === id))}
+      />
+      {entry.palette && entry.palette.length > 0 && (
+        <PaletteSheet
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          entryId={entry.id}
+          measured={entry.palette}
+          saved={entry.palettes}
+          onSaved={(palettes) => setEntry((current) => ({ ...current, palettes }))}
+        />
+      )}
       <CollectionsDialog
         entryId={entry.id}
         memberOf={entry.collectionIds}

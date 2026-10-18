@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import ScrollVelocity from '@/components/bits/ScrollVelocity';
 import { Wall } from '@/components/gallery/wall';
+import { RevealHeading } from '@/components/motion/reveal-heading';
 import { Segmented } from '@/components/ui/segmented';
 import { api, LIBRARY_CHANGED } from '@/lib/client/api';
 import { useCssColor } from '@/lib/client/use-css-color';
@@ -19,7 +20,7 @@ const DriftWall = dynamic(() => import('@/components/bits/DriftWall'), { ssr: fa
 function SectionHeading({ title, note, action }: { title: string; note: string; action?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-baseline gap-x-4 gap-y-2">
-      <h2 className="display text-[clamp(2rem,4vw,3rem)] leading-none">{title}</h2>
+      <RevealHeading className="display text-[clamp(2rem,4vw,3rem)] leading-none">{title}</RevealHeading>
       <p className="text-muted">{note}</p>
       {action && <div className="ml-auto self-center">{action}</div>}
     </div>
