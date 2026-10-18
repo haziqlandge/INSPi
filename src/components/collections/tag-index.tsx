@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { SearchIcon } from '@/components/ui/icons';
 import { toQuery } from '@/lib/client/filters';
 import { useTags } from '@/lib/client/tags';
+import { RevealHeading } from '@/components/motion/reveal-heading';
 import { OTHER_GROUP, TAG_GROUPS } from '@/lib/library/vocabulary';
 
 const GROUP_ORDER = [...TAG_GROUPS.map((g) => g.group), OTHER_GROUP];
@@ -30,9 +31,9 @@ export function TagIndex() {
     <section className="mt-16" aria-labelledby="tag-index-heading">
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div>
-          <h2 id="tag-index-heading" className="display text-[clamp(1.75rem,3.5vw,2.5rem)] leading-none">
+          <RevealHeading id="tag-index-heading" className="display text-[clamp(1.75rem,3.5vw,2.5rem)] leading-none">
             Tags
-          </h2>
+          </RevealHeading>
           <p className="mt-2 text-muted">Every tag in use. Pick one to see its entries.</p>
         </div>
         <label className="flex w-full max-w-sm items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-head">

@@ -8,6 +8,7 @@ import { Header } from '@/components/shell/header';
 import { themeScript } from '@/components/shell/theme-toggle';
 import { UploadProvider } from '@/components/upload/upload-provider';
 import './globals.css';
+import { ModelPrefetch } from '@/components/shell/model-prefetch';
 
 const fraunces = Fraunces({
   subsets: ['latin'],
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <ToastProvider>
             <UploadProvider>
             <Header />
+            <ModelPrefetch />
             <main className="pb-[var(--dock-space)]">{children}</main>
             <Suspense fallback={null}>
               <Dock />

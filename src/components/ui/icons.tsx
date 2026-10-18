@@ -170,6 +170,15 @@ export const GaugeIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A terminal window with a prompt: the MCP connection for coding agents. */
+export const TerminalIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="3" />
+    <path d="m7.5 9.5 3 2.5-3 2.5" />
+    <path d="M12.5 15h4" />
+  </Svg>
+);
+
 export const SparkleIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 3.5c.6 3.9 2.6 5.9 6.5 6.5-3.9.6-5.9 2.6-6.5 6.5-.6-3.9-2.6-5.9-6.5-6.5 3.9-.6 5.9-2.6 6.5-6.5Z" />
