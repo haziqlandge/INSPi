@@ -160,8 +160,6 @@
   place-items: center;
   gap: 1.5rem;
   padding: 1.5rem var(--lb-gutter) 6.5rem;
-  background: var(--lightbox-scrim);
-  backdrop-filter: blur(6px);
   cursor: zoom-out;
   overflow-y: auto;
 }
@@ -170,8 +168,16 @@
   z-index: 70;
   padding-bottom: 3rem;
   --lb-chrome: 6rem;
-  background: color-mix(in srgb, var(--lightbox-scrim), transparent 35%);
 }
+/* The backdrop is its own layer so it can fade while the print flies home above it */
+.fx-lightbox-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--lightbox-scrim);
+  backdrop-filter: blur(6px);
+}
+.fx-lightbox-over-dialog .fx-lightbox-scrim { background: color-mix(in srgb, var(--lightbox-scrim), transparent 35%); }
 @media (max-width: 639px) { .fx-lightbox { --lb-arrow: 0rem; --lb-gutter: 1rem; } }
 .fx-lightbox-stage { display: grid; place-items: center; gap: 0.75rem; min-width: 0; width: 100%; }
 /* Prints cross-fade in one cell, so moving between them never shifts the layout */

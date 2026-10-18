@@ -5,12 +5,12 @@ HealthDot — pulsing dot for a model's health: green healthy, amber degraded, g
 DevelopReveal — darkroom print: while waiting a scan line sweeps warm paper; when the image lands a grid of paper squares dissolves at random while sepia and blur wash out — line 42 — recreated from React Bits Pixel Transition (GSAP) with anime.js + INSPi's developing scan
 ShutterButton — button with a six-blade camera iris: the blades snap shut and open on press and turn slowly while busy — line 145 — recreated (camera aperture, SVG + anime.js)
 RenderCarousel — row of prints with no scrollbar: arrows in the heading row glide one print at a time, autoplay does exactly that every 4 s and glides back from the end, pausing while hovered, focused, dragged, zoomed, hidden or off screen; edges fade where more prints wait; mouse drag, touch swipe and ← →; a print grows into the zoom view with arrows across all of them — line 216 — recreated (snap carousel after Embla, anime.js glide) + UI Layouts media-modal
-PrintLightbox — zoom view of a list of prints: the one opened grows out of its thumbnail (shared layout id), arrows, ← → and a swipe move through the list with a cross-fade, a counter says where you are; never larger than the screen allows, with an optional side panel; Escape or a click closes it, and over a dialog only it closes — line 506 — recreated from UI Layouts media-modal
-CyclingPlaceholder — ghost text over an empty field that types an example, holds, backspaces and types the next — line 665 — recreated (typewriter placeholder after React Bits Text Type, no dependency)
-AspectPicker — aspect-ratio choices drawn as small frames of that shape; a filled frame springs to the one picked — line 709 — recreated (Motion layoutId, after INSPi Segmented)
-MasonryWall — column wall of prints that rise in with a short stagger; the newest develops in, any print opens in PrintLightbox — line 734 — recreated (INSPi gallery wall + DevelopReveal)
-LockToggle — padlock whose shackle lifts open and snaps shut with a spring — line 790 — recreated (Coolors-style lock, Motion)
-SwatchColumn — one full-height colour of a palette; when it changes, a slot-machine reel of passing colours spins down and settles with an overshoot; hex, lock and copy float on top — line 821 — recreated from Coolors' generator (studied frame by frame) with an anime.js reel
+PrintLightbox — zoom view of a list of prints: the one opened flies out of its thumbnail and back into it above a backdrop that fades on its own, arrows, ← → and a swipe move through the list with a cross-fade, a counter says where you are; never larger than the screen allows, with an optional side panel; Escape or a click closes it, and over a dialog only it closes — line 618 — recreated from UI Layouts media-modal
+CyclingPlaceholder — ghost text over an empty field that types an example, holds, backspaces and types the next — line 758 — recreated (typewriter placeholder after React Bits Text Type, no dependency)
+AspectPicker — aspect-ratio choices drawn as small frames of that shape; a filled frame springs to the one picked — line 802 — recreated (Motion layoutId, after INSPi Segmented)
+MasonryWall — column wall of prints that rise in with a short stagger; the newest develops in, any print opens in PrintLightbox — line 827 — recreated (INSPi gallery wall + DevelopReveal)
+LockToggle — padlock whose shackle lifts open and snaps shut with a spring — line 883 — recreated (Coolors-style lock, Motion)
+SwatchColumn — one full-height colour of a palette; when it changes, a slot-machine reel of passing colours spins down and settles with an overshoot; hex, lock and copy float on top — line 914 — recreated from Coolors' generator (studied frame by frame) with an anime.js reel
 FX-INDEX:END */
 
 // INSPi's own motion pieces, one file so they can be found from the index above.
@@ -18,7 +18,7 @@ FX-INDEX:END */
 // rebuilds the index from those tags. Everything respects prefers-reduced-motion.
 
 import { animate, stagger } from 'animejs';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, usePresence } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '@/components/ui/icons';
 import { AUTOPLAY_MS, autoplayTarget, canAutoplay, indexAt, stepIndex } from './carousel-nav';
@@ -463,7 +463,7 @@ export function RenderCarousel({
           <li key={item.id} className="fx-strip-item" style={{ width: `calc(var(--strip-h) * ${item.width / item.height})` }}>
             <motion.button
               type="button"
-              layoutId={`fx-strip-${item.id}`}
+              data-print={`fx-strip-${item.id}`}
               className="fx-strip-print"
               onClick={() => setOpen(i)}
               aria-label={`Open ${item.alt}`}
@@ -504,8 +504,118 @@ function useFreshId(items: { id: string }[]): string | null {
   return fresh;
 }
 
+const FLIGHT_EASE = 'cubic-bezier(.32,.72,0,1)';
+
+/** The thumbnail a print was opened from: whatever carries `data-print="<prefix>-<id>"`. */
+function thumbOf(prefix: string, id: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-print="${CSS.escape(`${prefix}-${id}`)}"]`);
+}
+
+const onScreen = (rect: DOMRect) => rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
+
 /**
- * @fx PrintLightbox | zoom view of a list of prints: the one opened grows out of its thumbnail (shared layout id), arrows, ← → and a swipe move through the list with a cross-fade, a counter says where you are; never larger than the screen allows, with an optional side panel; Escape or a click closes it, and over a dialog only it closes | recreated from UI Layouts media-modal
+ * One flight between a print's thumbnail and its place in the zoom view, as a single transform
+ * animation on the big image: it starts where it is now (a close during the opening flight turns
+ * round from there) and nothing else moves, so there is no second hand-over at the end.
+ */
+function fly(img: HTMLElement, thumb: HTMLElement, direction: 'open' | 'close'): Animation {
+  const current = img.getBoundingClientRect();
+  for (const running of img.getAnimations()) running.cancel();
+  const home = img.getBoundingClientRect();
+  const box = thumb.getBoundingClientRect();
+  const place = (r: DOMRect) => `translate(${r.left - home.left}px, ${r.top - home.top}px) scale(${r.width / home.width}, ${r.height / home.height})`;
+  // The corner radius is drawn unscaled, so the thumbnail's is divided by the scale it will be seen at
+  const radius = parseFloat(getComputedStyle(thumb).borderTopLeftRadius) || 0;
+  const small = `${radius / (box.width / home.width)}px`;
+  const rest = { transform: 'translate(0px, 0px) scale(1, 1)', borderRadius: '1rem' };
+  const thumbnail = { transform: place(box), borderRadius: small };
+  const keyframes = direction === 'open' ? [thumbnail, rest] : [{ transform: place(current), borderRadius: '1rem' }, thumbnail];
+  return img.animate(keyframes.map((k) => ({ ...k, transformOrigin: '0 0' })), {
+    duration: direction === 'open' ? 380 : 320,
+    easing: FLIGHT_EASE,
+    fill: direction === 'open' ? 'backwards' : 'forwards',
+  });
+}
+
+/**
+ * The print in the zoom view: grows out of its thumbnail when it appears, and flies back into it
+ * (above the fading backdrop) before it is taken away. The thumbnail is hidden while its print is out.
+ */
+function LightboxStage({ prefix, item, openedId, position, count }: { prefix: string; item: StripItem; openedId: string | null; position: number; count: number }) {
+  const [present, safeToRemove] = usePresence();
+  const frame = useRef<HTMLDivElement>(null);
+  const hidden = useRef(new Set<HTMLElement>());
+  const hide = (el: HTMLElement) => {
+    el.style.visibility = 'hidden';
+    hidden.current.add(el);
+  };
+  const reveal = () => {
+    for (const el of hidden.current) el.style.visibility = '';
+    hidden.current.clear();
+  };
+  const shown = () => frame.current?.querySelector<HTMLElement>('.fx-lightbox-img:last-of-type') ?? null;
+
+  useLayoutEffect(() => {
+    const thumb = thumbOf(prefix, item.id);
+    const img = shown();
+    if (!thumb || !img || reducedMotion() || !onScreen(thumb.getBoundingClientRect())) return;
+    hide(thumb);
+    fly(img, thumb, 'open');
+    // Only the opening print flies; the effect must not run again as the list is stepped through
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (present) return;
+    const img = shown();
+    const thumb = thumbOf(prefix, item.id);
+    reveal();
+    if (!img || !thumb || reducedMotion() || !onScreen(thumb.getBoundingClientRect())) {
+      // Nothing to land on (scrolled away, deleted): the print simply fades with the backdrop
+      const fade = img?.animate({ opacity: [1, 0] }, { duration: 200, fill: 'forwards' });
+      if (fade) void fade.finished.then(() => safeToRemove?.(), () => safeToRemove?.());
+      else safeToRemove?.();
+      return;
+    }
+    hide(thumb);
+    const done = () => {
+      reveal();
+      safeToRemove?.();
+    };
+    void fly(img, thumb, 'close').finished.then(done, done);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [present]);
+
+  return (
+    <div className="fx-lightbox-stage">
+      <div className="fx-lightbox-frame" ref={frame}>
+        <AnimatePresence initial={false}>
+          <motion.img
+            key={item.id}
+            src={item.src}
+            alt={item.alt}
+            className="fx-lightbox-img"
+            style={{ aspectRatio: `${item.width} / ${item.height}` }}
+            initial={item.id === openedId ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ opacity: { duration: 0.22 } }}
+          />
+        </AnimatePresence>
+      </div>
+      {count > 1 && (
+        <motion.p className="fx-lightbox-count" aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+          {position + 1} / {count}
+        </motion.p>
+      )}
+    </div>
+  );
+}
+
+const CHROME_FADE = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.2 } };
+
+/**
+ * @fx PrintLightbox | zoom view of a list of prints: the one opened flies out of its thumbnail and back into it above a backdrop that fades on its own, arrows, ← → and a swipe move through the list with a cross-fade, a counter says where you are; never larger than the screen allows, with an optional side panel; Escape or a click closes it, and over a dialog only it closes | recreated from UI Layouts media-modal
  */
 export function PrintLightbox({
   items,
@@ -553,10 +663,14 @@ export function PrintLightbox({
 
   useEffect(() => {
     if (!isOpen) return;
-    const before = document.body.style.overflow;
+    // The scrollbar's width is kept as padding, so the page (and the thumbnail the print flies back to) does not move
+    const { overflow, paddingRight } = document.body.style;
+    const bar = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
+    if (bar > 0) document.body.style.paddingRight = `${bar}px`;
     return () => {
-      document.body.style.overflow = before;
+      document.body.style.overflow = overflow;
+      document.body.style.paddingRight = paddingRight;
     };
   }, [isOpen]);
 
@@ -604,33 +718,10 @@ export function PrintLightbox({
                 swipe.current = null;
               }
             }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
           >
-            <div className="fx-lightbox-stage">
-              <div className="fx-lightbox-frame">
-                <AnimatePresence initial={false}>
-                  <motion.img
-                    key={item.id}
-                    layoutId={item.id === openedId ? `${layoutPrefix}-${item.id}` : undefined}
-                    src={item.src}
-                    alt={item.alt}
-                    className="fx-lightbox-img"
-                    style={{ aspectRatio: `${item.width} / ${item.height}` }}
-                    initial={item.id === openedId ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.5, opacity: { duration: 0.22 } }}
-                  />
-                </AnimatePresence>
-              </div>
-              {count > 1 && (
-                <p className="fx-lightbox-count" aria-hidden>
-                  {index! + 1} / {count}
-                </p>
-              )}
-            </div>
+            {/* The backdrop fades on its own: the print is not under it, so it can fly back in plain sight */}
+            <motion.div className="fx-lightbox-scrim" aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.28 }} />
+            <LightboxStage prefix={layoutPrefix} item={item} openedId={openedId} position={index!} count={count} />
             {side && (
               <motion.aside
                 className="fx-lightbox-side"
@@ -644,18 +735,18 @@ export function PrintLightbox({
               </motion.aside>
             )}
             {prev !== null && (
-              <button type="button" className="icon-btn fx-lightbox-arrow fx-lightbox-prev" aria-label="Previous" onClick={step(prev)}>
+              <motion.button type="button" className="icon-btn fx-lightbox-arrow fx-lightbox-prev" aria-label="Previous" onClick={step(prev)} {...CHROME_FADE}>
                 <ChevronLeftIcon />
-              </button>
+              </motion.button>
             )}
             {next !== null && (
-              <button type="button" className="icon-btn fx-lightbox-arrow fx-lightbox-next" aria-label="Next" onClick={step(next)}>
+              <motion.button type="button" className="icon-btn fx-lightbox-arrow fx-lightbox-next" aria-label="Next" onClick={step(next)} {...CHROME_FADE}>
                 <ChevronRightIcon />
-              </button>
+              </motion.button>
             )}
-            <button type="button" className="icon-btn fx-lightbox-close" aria-label="Close" onClick={onClose}>
+            <motion.button type="button" className="icon-btn fx-lightbox-close" aria-label="Close" onClick={onClose} {...CHROME_FADE}>
               <CloseIcon />
-            </button>
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -767,7 +858,7 @@ export function MasonryWall({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.2, 0.7, 0.1, 1], delay: Math.min(i, 12) * 0.035 }}
           >
-            <motion.button type="button" layoutId={`fx-wall-${item.id}`} className="fx-masonry-print" onClick={() => setOpen(i)} aria-label={`Open ${item.alt}`}>
+            <motion.button type="button" data-print={`fx-wall-${item.id}`} className="fx-masonry-print" onClick={() => setOpen(i)} aria-label={`Open ${item.alt}`}>
               {item.id === fresh ? (
                 <DevelopReveal src={item.src} alt={item.alt} width={item.width} height={item.height} />
               ) : (

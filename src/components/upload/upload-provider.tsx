@@ -328,7 +328,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <button type="button" className="block cursor-zoom-in" onClick={() => setPreviewId(p.id)} aria-label={`View ${p.file.name} larger`}>
                         <motion.img
-                          layoutId={`upload-${p.id}`}
+                          data-print={`upload-${p.id}`}
                           src={p.url}
                           alt=""
                           className="h-20 w-20 rounded-[2px] object-cover sm:h-24 sm:w-24"

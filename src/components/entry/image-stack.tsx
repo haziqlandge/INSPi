@@ -1,6 +1,6 @@
 'use client';
 
-import { MotionConfig, motion } from 'motion/react';
+import { MotionConfig } from 'motion/react';
 import { ViewTransition, useCallback, useState, type ReactNode } from 'react';
 import { PrintLightbox, type StripItem } from '@/components/fx/library';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,8 +19,8 @@ interface Props {
 }
 
 /**
- * The enlarge-in-place behaviour follows UI Layouts' media-modal: the image in the print and the
- * image in the lightbox share a layout id, so one grows out of the other instead of cutting.
+ * The enlarge-in-place behaviour: the lightbox finds the print by its `data-print` id, grows out of
+ * it and flies back into it, so the view never cuts.
  */
 const ZOOM_SPRING = { type: 'spring', stiffness: 300, damping: 30, mass: 0.5 } as const;
 
@@ -66,7 +66,7 @@ export function ImageStack({ entryId, images, name, developing, failed, footer }
               onClick={() => setZoomed(true)}
               aria-label={`Enlarge image ${selected + 1} of ${images.length}`}
             >
-              <motion.div layoutId={`zoom-${current.id}`} className="h-full w-full">
+              <div data-print={`zoom-${current.id}`} className="h-full w-full">
                 <ViewTransition name={selected === 0 ? `cover-${entryId}` : undefined} share="morph" default="none">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -78,7 +78,7 @@ export function ImageStack({ entryId, images, name, developing, failed, footer }
                     className={`block h-full w-full ${failed ? 'opacity-60 grayscale' : ''}`}
                   />
                 </ViewTransition>
-              </motion.div>
+              </div>
             </button>
           </div>
         )}
