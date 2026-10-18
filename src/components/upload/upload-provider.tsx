@@ -14,11 +14,23 @@ import {
 } from 'react';
 import { useToast } from '@/components/feedback/toast';
 import { CloseIcon, PlusIcon } from '@/components/ui/icons';
+import { RunButton } from './run-button';
+import { AutoHeight, Collapse } from '@/components/ui/collapse';
+import { PrintLightbox, type StripItem } from '@/components/fx/library';
 import { Segmented, Switch } from '@/components/ui/segmented';
+import { CHANGES_MAX } from '@/lib/ai/prompts/steer';
+import type { SubjectMode } from '@/lib/ai/schema/display';
 import type { ProviderStatus } from '@/lib/ai/status';
+import { SUBJECT_LABELS, SUBJECT_MODES } from '@/lib/copy/compose';
 import { announceChange, api } from '@/lib/client/api';
 import { MAX_IMAGES_COMPRESSED, MAX_IMAGES_PLAIN, packFrames } from '@/lib/media/pack';
-import type { Mode } from '@/lib/types';
+import type { Mode, RunChoice } from '@/lib/types';
+
+const SUBJECT_HINT: Record<SubjectMode, string> = {
+  recreate: 'An exact prompt: the same subject and arrangement. Change it any time on the entry.',
+  mine: 'Your subject, drawn in this style.',
+  model: 'Style only; whoever uses the prompt picks the subject.',
+};
 
 interface Picked {
   id: string;
@@ -36,6 +48,7 @@ const UploadContext = createContext<UploadApi | null>(null);
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif';
 const MAX_BYTES = 20 * 1024 * 1024;
 const TILTS = [-2.2, 1.6, -1.1, 2.4, -1.8, 1.2, -2.6, 1.9, -1.4];
+
 
 const isImage = (file: File) => file.type.startsWith('image/');
 
@@ -68,6 +81,18 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('web');
   const [compress, setCompress] = useState(false);
+  const [changes, setChanges] = useState('');
+  // Image entries: the prompt recreates the picture, uses your subject, or keeps only the style
+  const [subject, setSubject] = useState<SubjectMode>('recreate');
+  const [mySubject, setMySubject] = useState('');
+  // The picked image shown full size, by id
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  // Each picked image's own size, read when its thumbnail loads, so the zoom view keeps its shape
+  const [sizes, setSizes] = useState<Record<string, [number, number]>>({});
+  const closePreview = useCallback(() => setPreviewId(null), []);
+  // Provider and models for this one analysis, when they differ from the provider in use
+  const [run, setRun] = useState<RunChoice | null>(null);
+  const [runReady, setRunReady] = useState(true);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [provider, setProvider] = useState<ProviderStatus | null>(null);
@@ -98,11 +123,14 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => {
     setOpen(false);
+    setPreviewId(null);
     setPicked((current) => {
       current.forEach((p) => URL.revokeObjectURL(p.url));
       return [];
     });
     setCompress(false);
+    setChanges('');
+    setMySubject('');
   }, []);
 
   const remove = (id: string) =>
@@ -168,6 +196,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!open) return;
+    // The zoom view catches Escape first (capture phase), so this Escape closes the window only when no picture is zoomed
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !busy) close();
     };
@@ -179,6 +208,9 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const forced = picked.length > MAX_IMAGES_PLAIN;
   const compressed = forced || (compress && picked.length > 1);
   const summary = describe(picked.length, compressed, provider);
+  const previewAt = previewId ? picked.findIndex((p) => p.id === previewId) : -1;
+  // The picked images as prints for the shared zoom view; a removed one simply leaves the list
+  const prints: StripItem[] = picked.map((p) => ({ id: p.id, src: p.url, width: sizes[p.id]?.[0] ?? 1, height: sizes[p.id]?.[1] ?? 1, alt: p.file.name, caption: null }));
 
   async function submit() {
     if (summary.blocked || busy) return;
@@ -188,6 +220,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       picked.forEach((p) => form.append('files', p.file));
       form.append('mode', mode);
       form.append('compress', compressed ? '1' : '0');
+      if (run) form.append('run', JSON.stringify(run));
+      if (changes.trim()) form.append('changes', changes.trim());
+      if (mode === 'image') {
+        form.append('subject', subject);
+        if (subject === 'mine') form.append('subjectText', mySubject.trim());
+      }
       await api('/api/entries', { method: 'POST', body: form });
       close();
       announceChange();
@@ -222,7 +260,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         {dragging && (
           <motion.div
             key="light-table"
-            className="pointer-events-none fixed inset-0 z-[80] grid place-items-center bg-head/35 p-6 backdrop-blur-[3px]"
+            className="pointer-events-none fixed inset-0 z-[80] grid place-items-center bg-scrim p-6 backdrop-blur-[3px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -248,7 +286,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         {open && (
           <motion.div
             key="tray"
-            className="fixed inset-0 z-[60] flex items-end justify-center bg-head/30 p-3 backdrop-blur-[2px] sm:items-center sm:p-6"
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-scrim p-3 backdrop-blur-[2px] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -274,7 +312,8 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                 </button>
               </div>
 
-              <ul className="mt-5 flex flex-wrap gap-3">
+              <AutoHeight className="-mx-2 mt-3">
+              <ul className="flex flex-wrap gap-3 p-2">
                 <AnimatePresence initial={false}>
                   {picked.map((p, index) => (
                     <motion.li
@@ -287,7 +326,18 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                       transition={{ type: 'spring', stiffness: 360, damping: 22 }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.url} alt={p.file.name} className="h-20 w-20 rounded-[2px] object-cover sm:h-24 sm:w-24" />
+                      <button type="button" className="block cursor-zoom-in" onClick={() => setPreviewId(p.id)} aria-label={`View ${p.file.name} larger`}>
+                        <motion.img
+                          layoutId={`upload-${p.id}`}
+                          src={p.url}
+                          alt=""
+                          className="h-20 w-20 rounded-[2px] object-cover sm:h-24 sm:w-24"
+                          onLoad={(e) => {
+                            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                            setSizes((all) => (all[p.id] ? all : { ...all, [p.id]: [w, h] }));
+                          }}
+                        />
+                      </button>
                       <button
                         type="button"
                         className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full border border-line bg-surface text-muted shadow-print hover:text-head"
@@ -314,8 +364,10 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                   </li>
                 )}
               </ul>
+              </AutoHeight>
 
-              <div className="mt-6 space-y-4 border-t border-line pt-5">
+              {/* Rows that come and go open and close in place (Collapse); spacing lives inside them */}
+              <div className="mt-4 border-t border-line pt-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="font-medium text-head">Recreate as</p>
@@ -334,8 +386,39 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                   />
                 </div>
 
-                {picked.length > 1 && (
-                  <div className="flex items-center justify-between gap-4">
+                <Collapse open={mode === 'image'}>
+                  <div className="pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-head">Subject</p>
+                        <p className="text-sm text-muted">{SUBJECT_HINT[subject]}</p>
+                      </div>
+                      <Segmented<SubjectMode>
+                        label="Subject"
+                        size="sm"
+                        value={subject}
+                        onChange={setSubject}
+                        options={SUBJECT_MODES.map((m) => ({ value: m, label: SUBJECT_LABELS[m] }))}
+                      />
+                    </div>
+                    <Collapse open={subject === 'mine'}>
+                      <div className="p-0.5 pt-2">
+                        <input
+                          className="field !text-[0.875rem]"
+                          value={mySubject}
+                          onChange={(e) => setMySubject(e.target.value)}
+                          placeholder="Your subject, e.g. a lighthouse on a cliff at dusk"
+                          aria-label="Your subject"
+                          maxLength={600}
+                          disabled={busy}
+                        />
+                      </div>
+                    </Collapse>
+                  </div>
+                </Collapse>
+
+                <Collapse open={picked.length > 1}>
+                  <div className="flex items-center justify-between gap-4 pt-4">
                     <div>
                       <p className="font-medium text-head">Compress</p>
                       <p className="text-sm text-muted">
@@ -346,16 +429,44 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                     </div>
                     <Switch label="Compress" checked={compressed} onChange={setCompress} disabled={forced || busy} />
                   </div>
-                )}
+                </Collapse>
               </div>
 
-              <p className={`mt-5 text-sm ${summary.blocked && picked.length > 0 ? 'text-danger' : 'text-muted'}`}>{summary.text}</p>
+              <div className="mt-5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <label htmlFor="upload-changes" className="font-medium text-head">
+                    Changes <span className="font-normal text-muted">(optional)</span>
+                  </label>
+                  {changes.length > CHANGES_MAX * 0.8 && (
+                    <span className="text-[0.75rem] tabular-nums text-muted">
+                      {changes.length}/{CHANGES_MAX}
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  id="upload-changes"
+                  className="field mt-2 min-h-[3.75rem] resize-y !text-[0.875rem] leading-relaxed"
+                  rows={2}
+                  maxLength={CHANGES_MAX}
+                  value={changes}
+                  disabled={busy}
+                  onChange={(e) => setChanges(e.target.value)}
+                  placeholder={mode === 'web' ? 'e.g. a light theme, rounder corners, no illustrations' : 'e.g. make it night time, teal instead of red, no text'}
+                />
+                <p className="mt-1 text-[0.75rem] text-muted">What you would change from the reference. The prompt is written with these in it.</p>
+              </div>
+
+              <RunButton open={open} onChange={(next, ready) => (setRun(next), setRunReady(ready))} />
+
+              <AutoHeight className="mt-5">
+                <p className={`text-sm ${summary.blocked && picked.length > 0 ? 'text-danger' : 'text-muted'}`}>{summary.text}</p>
+              </AutoHeight>
 
               <div className="mt-5 flex justify-end gap-2">
                 <button type="button" className="btn" onClick={close} disabled={busy}>
                   Cancel
                 </button>
-                <button type="button" className="btn btn-primary" onClick={submit} disabled={busy || summary.blocked}>
+                <button type="button" className="btn btn-primary" onClick={submit} disabled={busy || summary.blocked || !runReady || (mode === 'image' && subject === 'mine' && !mySubject.trim())}>
                   {busy ? 'Adding…' : 'Analyse'}
                 </button>
               </div>
@@ -363,6 +474,8 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PrintLightbox items={prints} index={previewAt >= 0 ? previewAt : null} onIndex={(i) => setPreviewId(picked[i]?.id ?? null)} layoutPrefix="upload" onClose={closePreview} layer="dialog" />
     </UploadContext.Provider>
   );
 }
