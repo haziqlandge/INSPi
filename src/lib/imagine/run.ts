@@ -53,12 +53,12 @@ export function readImagineBody(body: unknown): ImagineInput | { error: string }
 }
 
 /** The entry's first picture as a JPEG data URI, at most 1024 px on its long side. */
-async function referenceImage(lib: Library, entryId: string): Promise<string> {
+async function referenceImage(lib: Library, entryId: string, folder: string = entryMediaDir(entryId)): Promise<string> {
   const entry = lib.getEntry(entryId);
   const first = entry?.images[0];
   if (!first) throw new ImagineError('server', 'That entry has no picture to show the model.');
   // sharp gets the bytes, not the path: on Windows it can hold the file open and block deleting the entry.
-  const jpeg = await sharp(await readFile(join(entryMediaDir(entryId), `${first.id}.webp`)))
+  const jpeg = await sharp(await readFile(join(folder, `${first.id}.webp`)))
     .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 88 })
     .toBuffer();
@@ -81,8 +81,10 @@ export function withAspect(prompt: string, aspect: string | undefined, size: { w
 interface Deps {
   lib?: Library;
   /** Reads the reference picture; replaced in tests. */
-  reference?: (lib: Library, entryId: string) => Promise<string>;
+  reference?: (lib: Library, entryId: string, folder?: string) => Promise<string>;
   generate?: (backend: BackendId, req: ImagineRequest) => Promise<{ bytes: Buffer; contentType: string }>;
+  /** The media folder to keep renders in; the app's own when missing (the MCP server passes its own). */
+  mediaRoot?: string;
 }
 
 /**
@@ -94,7 +96,7 @@ export async function runImagine(input: ImagineInput, deps: Deps = {}): Promise<
   const generate = deps.generate ?? ((backend, req) => generateImage(backend, req));
   const { width, height } = sizeFor(input.aspect);
   const request: ImagineRequest = { prompt: withAspect(input.prompt, input.aspect, { width, height }), negative: input.negative, width, height, seed: input.seed, model: input.model };
-  if (input.reference && input.entryId) request.image = await (deps.reference ?? referenceImage)(lib, input.entryId);
+  if (input.reference && input.entryId) request.image = await (deps.reference ?? referenceImage)(lib, input.entryId, deps.mediaRoot && join(deps.mediaRoot, input.entryId));
   const call = { provider: 'pollinations', model: input.model, step: 'imagine' as const, entryId: input.entryId ?? null, tokensIn: 0, tokensOut: 0 };
 
   let image: { bytes: Buffer; contentType: string };
@@ -110,7 +112,7 @@ export async function runImagine(input: ImagineInput, deps: Deps = {}): Promise<
   }
   lib.recordCall({ ...call, at: Date.now(), ok: true });
 
-  const folder = entryMediaDir(input.entryId ?? PLAYGROUND_DIR);
+  const folder = deps.mediaRoot ? join(deps.mediaRoot, input.entryId ?? PLAYGROUND_DIR) : entryMediaDir(input.entryId ?? PLAYGROUND_DIR);
   const file = `render-${nanoid(12)}.webp`;
   const path = join(folder, file);
   await mkdir(folder, { recursive: true });

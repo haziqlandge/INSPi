@@ -9,7 +9,7 @@ import { packFrames } from '../media/pack';
 import { entryMediaDir } from '../paths';
 import { readSettings } from '../settings';
 import { library } from '../store';
-import type { Job } from '../store/library';
+import type { Job, Library } from '../store/library';
 
 /** Older entries get their measured palette a few at a time while the queue is idle. */
 const PALETTES_PER_IDLE_TICK = 5;
@@ -39,8 +39,8 @@ async function purge(): Promise<void> {
   }
 }
 
-async function runJob(job: Job): Promise<void> {
-  const lib = library();
+/** Runs one queued analysis; the web app's worker and the MCP server both use it. */
+export async function runJob(job: Job, lib: Library = library()): Promise<void> {
   const entry = lib.getEntry(job.entryId);
   if (!entry) {
     lib.finishJob(job.id, 'failed', 'Entry was deleted.');
