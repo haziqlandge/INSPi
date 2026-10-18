@@ -63,7 +63,7 @@ Everything lives in `data/` (git-ignored): `inspi.db` is the library, `media/` h
 | `npm run check-providers` | Check keys and model ids |
 | `npm run palettes` | Measure the colour palette of every entry that lacks one (the app also does this while idle). Local, no AI |
 | `npm run fx:index` | Rebuild the index at the top of `src/components/fx/library.tsx` (every motion component, what it does, and its line) |
-| `npm run mcp` | Run the read-only MCP server that lets coding agents search the library and fetch prompts. Settings > Coding agents has the command to register it |
+| `npm run mcp` | Run the MCP server that lets coding agents search the library, fetch prompts, list and switch image and text models, write prompts, generate images and turn a picture into a prompt. Settings > Coding agents has the command to register it |
 | `node scripts/add-bit.mjs Name` | Copy a React Bits component into `src/components/bits` |
 
 ## Visualize and palettes

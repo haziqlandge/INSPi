@@ -1,34 +1,26 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { composePrompt, specJson } from '../copy/compose';
-import { slugify } from '../library/slug';
-import type { Library } from '../store/library';
-import type { EntryDetail, Mode } from '../types';
+import type { Mode } from '../types';
+import { ok, problem, str, type ToolContext, type ToolResult } from './context';
+import { analyzeImageTool, generateImageTool, writePromptTool } from './create';
+import { listModelsTool, setModelTool } from './models';
+import { resolveReference } from './reference';
+
+export type { ToolContext, ToolResult } from './context';
 
 /**
- * What coding agents (Claude Code, Cursor…) can ask INSPi over MCP. Everything is read-only:
- * the library is looked at, never changed.
+ * What coding agents (Claude Code, Cursor…) can ask INSPi over MCP. Looking things up is read-only;
+ * the tools that make something (an image, a prompt, an entry) or switch a model say so in their
+ * annotations and only ever add to the library or change a setting.
  */
-
-export interface ToolContext {
-  lib: Library;
-  mediaRoot: string;
-  /** Where the app runs, for links back to entry pages. */
-  baseUrl: string;
-}
-
-type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
-export interface ToolResult {
-  content: Content[];
-  isError?: boolean;
-}
 
 interface Tool {
   name: string;
   title: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  annotations: { readOnlyHint: true; openWorldHint: false };
+  annotations: { readOnlyHint: boolean; destructiveHint?: false; openWorldHint: boolean };
 }
 
 const REFERENCE = {
@@ -36,12 +28,23 @@ const REFERENCE = {
   description: 'The entry’s name (as shown in INSPi, any case), its URL slug, or its id.',
 };
 
-const tool = (name: string, title: string, description: string, properties: Record<string, unknown>, required: string[] = []): Tool => ({
+const PROVIDER_ENUM = ['groq', 'gemini', 'openrouter', 'cloudflare', 'pollinations'];
+const BACKEND_ENUM = ['pollinations', 'pollinations-community', 'keyless-url'];
+
+/** `writes`: the tool makes or changes something; `network`: it talks to a service outside the library. */
+const tool = (
+  name: string,
+  title: string,
+  description: string,
+  properties: Record<string, unknown>,
+  required: string[] = [],
+  { writes = false, network = false } = {},
+): Tool => ({
   name,
   title,
   description,
   inputSchema: { type: 'object', properties, required, additionalProperties: false },
-  annotations: { readOnlyHint: true, openWorldHint: false },
+  annotations: writes ? { readOnlyHint: false, destructiveHint: false, openWorldHint: network } : { readOnlyHint: true, openWorldHint: network },
 });
 
 export const TOOLS: Tool[] = [
@@ -93,31 +96,84 @@ export const TOOLS: Tool[] = [
     'Lists the categories in use with their counts, the most used tags, and the collections, to help decide what to search for.',
     {},
   ),
+  tool(
+    'list_models',
+    'List image and text models',
+    'Lists the models INSPi can use in two separate sections, so you never search for them: IMAGE MODELS (make pictures; Pollinations official and community, with health and whether they take a reference image) and TEXT MODELS (read images and write prompts; per provider that has a key, with vision or text-only marked). The current choices are marked. kind shows one section; search filters by name.',
+    {
+      kind: { type: 'string', enum: ['all', 'image', 'text'], description: '"image" for picture makers, "text" for models that read images and write text, "all" (default) for both sections.' },
+      search: { type: 'string', description: 'Only models whose id contains this.' },
+      provider: { type: 'string', enum: PROVIDER_ENUM, description: 'Only this provider’s text models.' },
+    },
+    [],
+    { network: true },
+  ),
+  tool(
+    'set_model',
+    'Switch the image or text model',
+    'Changes which model INSPi uses, in the app and in these tools. kind "image": pass model (an id from list_models; its backend is found for you) or auto (strongest, balanced or cheapest, chosen at each image). kind "text": pass provider with vision (reads images, for analyze_image) and/or text (writes prompts); that provider becomes the one in use unless use is false.',
+    {
+      kind: { type: 'string', enum: ['image', 'text'], description: '"image" for picture makers, "text" for the models that read images and write prompts.' },
+      model: { type: 'string', description: 'Image model id, for kind "image".' },
+      backend: { type: 'string', enum: BACKEND_ENUM, description: 'Only look for the image model on this backend.' },
+      auto: { type: 'string', enum: ['strongest', 'balanced', 'cheapest'], description: 'For kind "image": let AutoPick choose the model at each image.' },
+      provider: { type: 'string', enum: PROVIDER_ENUM, description: 'Text provider, for kind "text".' },
+      vision: { type: 'string', description: 'Model that reads images, for kind "text".' },
+      text: { type: 'string', description: 'Model that writes prompts, for kind "text".' },
+      use: { type: 'boolean', description: 'Make this provider the one in use (default true).' },
+    },
+    ['kind'],
+    { writes: true },
+  ),
+  tool(
+    'generate_image',
+    'Generate an image',
+    'Makes an image from a prompt with the chosen image model (or the one named), keeps it on INSPi’s Visualize wall and returns it. Pass save_to (an absolute path) to also write the model’s original file, for example a PNG for a game. aspect sets the shape ("1:1", "2:1", "16:9"…). reference shows a library entry’s picture to a model that takes one. Spends Pollinations Pollen.',
+    {
+      prompt: { type: 'string', description: 'What to draw. write_prompt can draft one from an idea.' },
+      model: { type: 'string', description: 'Image model id from list_models; the saved choice or AutoPick when missing.' },
+      backend: { type: 'string', enum: BACKEND_ENUM, description: 'Only needed to force a backend.' },
+      aspect: { type: 'string', description: 'Aspect ratio such as "2:1"; a square when missing.' },
+      negative: { type: 'string', description: 'What to keep out.' },
+      seed: { type: 'number', description: 'Repeatable result where the model supports it.' },
+      reference: { type: 'string', description: 'A library entry (name, slug or id) whose picture the model is shown, for models that take one.' },
+      save_to: { type: 'string', description: 'Absolute path to write the original image to, e.g. C:/game/sprites/attack.png.' },
+    },
+    ['prompt'],
+    { writes: true, network: true },
+  ),
+  tool(
+    'write_prompt',
+    'Write an image prompt',
+    'Turns an idea into a ready prompt for generate_image with a text model, plus a short negative. kind "spritesheet" adds what a game sheet needs (grid, equal cells, flat background, animation principles such as smear frames); "ui" is for interface mock-ups. reference lends the style of a library entry. Uses the provider in use, or the provider and model you name.',
+    {
+      idea: { type: 'string', description: 'What the image should show.' },
+      kind: { type: 'string', enum: ['image', 'spritesheet', 'ui'], description: 'Default "image".' },
+      reference: { type: 'string', description: 'A library entry (name, slug or id) whose style to match.' },
+      provider: { type: 'string', enum: PROVIDER_ENUM, description: 'Use this provider instead of the one in use.' },
+      model: { type: 'string', description: 'Text model for that provider.' },
+    },
+    ['idea'],
+    { writes: true, network: true },
+  ),
+  tool(
+    'analyze_image',
+    'Turn an image into a prompt',
+    'Reverse-engineers a picture into a copy-ready prompt: reads it with a vision model, saves it in the INSPi library as a new entry and returns the prompt. source is an absolute file path, an http(s) address or a data URI. mode "image" (default) writes a style prompt for image generators, "web" a build spec for a website. Takes a minute or more; uses the provider in use unless provider is named.',
+    {
+      source: { type: 'string', description: 'Absolute file path, http(s) address or data URI of the image.' },
+      mode: { type: 'string', enum: ['image', 'web'], description: '"image" (default) or "web".' },
+      subject: { type: 'string', enum: ['recreate', 'mine', 'model'], description: 'Image mode: recreate the picture, use subject_text, or leave the subject to the model.' },
+      subject_text: { type: 'string', description: 'The subject to draw when subject is "mine".' },
+      changes: { type: 'string', description: 'Changes from the reference the prompt must apply.' },
+      provider: { type: 'string', enum: PROVIDER_ENUM, description: 'Use this provider instead of the one in use.' },
+      vision_model: { type: 'string', description: 'Model that reads the image, for that provider.' },
+      text_model: { type: 'string', description: 'Model that writes the prompt, for that provider.' },
+    },
+    ['source'],
+    { writes: true, network: true },
+  ),
 ];
-
-const ok = (text: string): ToolResult => ({ content: [{ type: 'text', text }] });
-const problem = (text: string): ToolResult => ({ content: [{ type: 'text', text }], isError: true });
-
-function str(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-type Found = { entry: EntryDetail } | { error: string };
-
-/** Name, slug or id; failing those, a search that must point at exactly one entry. */
-function resolve(lib: Library, raw: unknown): Found {
-  const reference = str(raw);
-  if (!reference) return { error: 'Say which reference: its name, slug or id.' };
-  const direct = lib.getEntry(reference) ?? lib.getEntry(slugify(reference));
-  if (direct) return { entry: direct };
-
-  const { items } = lib.listEntries({ q: reference, limit: 10 });
-  const exact = items.filter((item) => item.name.toLowerCase() === reference.toLowerCase());
-  const candidates = exact.length ? exact : items;
-  if (candidates.length === 1) return { entry: lib.getEntry(candidates[0].id)! };
-  if (candidates.length === 0) return { error: `No reference matches "${reference}". Try search_references.` };
-  return { error: `"${reference}" matches several references: ${candidates.map((c) => `${c.name} (${c.slug})`).join(', ')}. Pass one of their slugs.` };
-}
 
 function listLine(entry: { name: string; slug: string; category: string; mode: Mode; tags: string[]; status: string }): string {
   const state = entry.status === 'ready' ? '' : ` [${entry.status}]`;
@@ -136,7 +192,7 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
     }
 
     case 'get_prompt': {
-      const found = resolve(lib, args.reference);
+      const found = resolveReference(lib, args.reference);
       if ('error' in found) return problem(found.error);
       const { entry } = found;
       const version =
@@ -152,7 +208,7 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
     }
 
     case 'get_reference': {
-      const found = resolve(lib, args.reference);
+      const found = resolveReference(lib, args.reference);
       if ('error' in found) return problem(found.error);
       const { entry } = found;
       const active = entry.versions.find((v) => v.id === entry.activeVersionId);
@@ -172,7 +228,7 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
     }
 
     case 'get_reference_image': {
-      const found = resolve(lib, args.reference);
+      const found = resolveReference(lib, args.reference);
       if ('error' in found) return problem(found.error);
       const { entry } = found;
       const index = Math.max(1, Math.floor(Number(args.index) || 1));
@@ -201,6 +257,17 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
           .join('\n'),
       );
     }
+
+    case 'list_models':
+      return listModelsTool(ctx, args);
+    case 'set_model':
+      return setModelTool(ctx, args);
+    case 'generate_image':
+      return generateImageTool(ctx, args);
+    case 'write_prompt':
+      return writePromptTool(ctx, args);
+    case 'analyze_image':
+      return analyzeImageTool(ctx, args);
 
     default:
       return problem(`Unknown tool "${name}".`);

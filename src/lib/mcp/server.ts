@@ -34,7 +34,7 @@ export async function handleMessage(ctx: ToolContext, message: Request): Promise
         capabilities: { tools: {} },
         serverInfo: { name: 'inspi', title: 'INSPi', version: '1.0.0' },
         instructions:
-          'INSPi is a personal library of visual references. Each has a copy-ready prompt that describes its design system. Find references with search_references or library_overview, then fetch the prompt with get_prompt and, if useful, the image with get_reference_image.',
+          'INSPi is a personal library of visual references, and it can make images. Library: find references with search_references or library_overview, fetch the copy-ready prompt with get_prompt and the picture with get_reference_image. Making: list_models separates IMAGE models (make pictures) from TEXT models (read images, write prompts); set_model switches either; write_prompt drafts an image prompt from an idea; generate_image makes the picture (save_to writes the original file); analyze_image turns a picture into a prompt and keeps it in the library.',
       });
     }
     case 'ping':

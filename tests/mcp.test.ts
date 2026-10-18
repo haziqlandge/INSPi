@@ -35,11 +35,34 @@ const ctx = () => ({ lib, mediaRoot: join(dir, 'media'), baseUrl: 'http://localh
 const text = (result: Awaited<ReturnType<typeof callTool>>) => result.content.map((c) => ('text' in c ? c.text : '')).join('\n');
 
 describe('INSPi MCP tools', () => {
-  it('are all read-only and described', () => {
-    expect(TOOLS.map((t) => t.name).sort()).toEqual(['get_prompt', 'get_reference', 'get_reference_image', 'library_overview', 'search_references']);
+  it('are all described, with the read-only and open-world hints the contract sets', () => {
+    expect(TOOLS.map((t) => t.name).sort()).toEqual([
+      'analyze_image',
+      'generate_image',
+      'get_prompt',
+      'get_reference',
+      'get_reference_image',
+      'library_overview',
+      'list_models',
+      'search_references',
+      'set_model',
+      'write_prompt',
+    ]);
+    const hints: Record<string, { readOnlyHint: boolean; openWorldHint: boolean }> = {
+      analyze_image: { readOnlyHint: false, openWorldHint: true },
+      generate_image: { readOnlyHint: false, openWorldHint: true },
+      get_prompt: { readOnlyHint: true, openWorldHint: false },
+      get_reference: { readOnlyHint: true, openWorldHint: false },
+      get_reference_image: { readOnlyHint: true, openWorldHint: false },
+      library_overview: { readOnlyHint: true, openWorldHint: false },
+      list_models: { readOnlyHint: true, openWorldHint: true },
+      search_references: { readOnlyHint: true, openWorldHint: false },
+      set_model: { readOnlyHint: false, openWorldHint: false },
+      write_prompt: { readOnlyHint: false, openWorldHint: true },
+    };
     for (const tool of TOOLS) {
       expect(tool.description.length).toBeGreaterThan(40);
-      expect(tool.annotations?.readOnlyHint).toBe(true);
+      expect(tool.annotations).toMatchObject(hints[tool.name]);
     }
   });
 
@@ -90,7 +113,7 @@ describe('INSPi MCP protocol', () => {
     expect(init).toMatchObject({ id: 1, result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'inspi' } } });
     expect(await handleMessage(ctx(), { jsonrpc: '2.0', method: 'notifications/initialized' })).toBeNull();
     const list = (await handleMessage(ctx(), { jsonrpc: '2.0', id: 2, method: 'tools/list' })) as { result: { tools: unknown[] } };
-    expect(list.result.tools).toHaveLength(5);
+    expect(list.result.tools).toHaveLength(10);
     const call = (await handleMessage(ctx(), { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get_prompt', arguments: { reference: 'Glass Dusk', format: 'json' } } })) as { result: { content: { text: string }[] } };
     expect(JSON.parse(call.result.content[0].text).name).toBe('Glass Dusk');
     expect(await handleMessage(ctx(), { jsonrpc: '2.0', id: 4, method: 'nope' })).toMatchObject({ id: 4, error: { code: -32601 } });
