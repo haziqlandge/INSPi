@@ -12,6 +12,7 @@
   --surface: #f8f1df;   /* cards, the dock, inputs */
   --line: #d8c9a6;      /* hairlines */
   --head: #3b2416;      /* names, headings, primary buttons */
+  --on-head: #efe4cb;   /* text on a head-coloured fill: selected chips, the Segmented pill, primary buttons */
   --ink: #3b2a20;       /* reading text */
   --muted: #765c4e;     /* secondary text */
   --accent: #7f520a;    /* small highlights: mode badge, favourite, JSON keys, focus */
@@ -19,6 +20,11 @@
   --chart: #9a6208;     /* bars on the Usage page; checked for contrast and chroma on the light surface */
   --shadow: 59 36 22;
   --scrim: rgb(59 36 22 / 0.3);   /* behind dialogs */
+  --lightbox-scrim: rgb(28 19 15 / 0.9);   /* behind a zoomed print: the darkroom, in both themes */
+  /* Labels laid on a photo (a card's badge, "Could not be analyzed"): the same in both themes */
+  --photo-ink: #f6d9be;
+  --photo-shade: rgb(35 25 27 / 0.85);
+  --photo-chip: rgb(35 25 27 / 0.75);
   --grain-opacity: 0.22;
   --grain-blend: multiply;
   --shimmer: 255 250 238;
@@ -32,6 +38,7 @@
   --surface: #23191b;
   --line: #3a2b2e;
   --head: #f6d9be;
+  --on-head: #191113;
   --ink: #ebdccd;
   --muted: #b09a88;
   --accent: #e2b04a;
@@ -39,6 +46,7 @@
   --chart: #b8862e;
   --shadow: 0 0 0;
   --scrim: rgb(10 5 6 / 0.68);
+  --lightbox-scrim: rgb(20 13 14 / 0.94);
   --grain-opacity: 0.16;
   --grain-blend: soft-light;
   --shimmer: 246 217 190;
@@ -55,6 +63,7 @@
   --color-accent: var(--accent);
   --color-danger: var(--danger);
   --color-chart: var(--chart);
+  --color-on-head: var(--on-head);
   --color-scrim: var(--scrim);
 
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
@@ -211,7 +220,7 @@
   .btn-primary {
     background: var(--head);
     border-color: var(--head);
-    color: var(--bg);
+    color: var(--on-head);
   }
   .btn-primary:hover:not(:disabled) {
     border-color: var(--head);
@@ -246,6 +255,38 @@
     color: var(--accent);
   }
 
+  /* Collapse (ui/collapse.tsx): grid rows ease between 0fr and 1fr; reversing mid-way never jumps */
+  .ui-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 0.32s cubic-bezier(0.2, 0.7, 0.1, 1),
+      opacity 0.22s ease;
+  }
+  .ui-collapse[data-open] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .ui-collapse-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ui-collapse { transition: none; }
+  }
+
+  /* A scroll area whose thin thumb shows only while the pointer is over it */
+  .quiet-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s;
+  }
+  .quiet-scroll:hover,
+  .quiet-scroll:focus-within {
+    scrollbar-color: color-mix(in srgb, var(--muted) 38%, transparent) transparent;
+  }
+
   .chip {
     display: inline-flex;
     align-items: center;
@@ -261,8 +302,9 @@
       border-color 0.15s ease,
       background-color 0.15s ease;
   }
-  a.chip:hover,
-  button.chip:hover {
+  /* Hover carries no specificity (:where), so a selected chip keeps its own colours under the
+     pointer whatever order rules come in; it once turned its label the colour of its fill. */
+  :where(a.chip, button.chip):hover {
     color: var(--head);
     border-color: var(--muted);
   }
@@ -270,15 +312,7 @@
   .chip[aria-current="true"] {
     background: var(--head);
     border-color: var(--head);
-    color: var(--bg);
-  }
-  /* The hover rule above is as specific as this one and came first; without this, a selected chip
-     turned its text to the heading colour (the same as its fill) when hovered, which hid the label. */
-  a.chip[aria-current="true"]:hover,
-  button.chip[aria-pressed="true"]:hover {
-    background: var(--head);
-    border-color: var(--head);
-    color: var(--bg);
+    color: var(--on-head);
   }
 
   .badge {

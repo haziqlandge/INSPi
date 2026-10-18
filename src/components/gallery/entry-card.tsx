@@ -122,13 +122,13 @@ export function EntryCard({ entry, index }: Props) {
         )}
 
         {failed && (
-          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#23191b]/85 to-transparent px-3 pb-2.5 pt-8 text-[0.8125rem] font-medium text-[#f6d9be]">
+          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[var(--photo-shade)] to-transparent px-3 pb-2.5 pt-8 text-[0.8125rem] font-medium text-[var(--photo-ink)]">
             Could not be analyzed
           </span>
         )}
 
         {entry.imageCount > 1 && !pending && (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#23191b]/75 px-2 py-1 text-xs font-medium text-[#f6d9be] backdrop-blur-sm">
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[var(--photo-chip)] px-2 py-1 text-xs font-medium text-[var(--photo-ink)] backdrop-blur-sm">
             <ImagesIcon size={13} />
             {entry.imageCount}
           </span>
