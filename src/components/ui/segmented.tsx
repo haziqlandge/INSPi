@@ -2,6 +2,7 @@
 
 import { motion } from 'motion/react';
 import { useId } from 'react';
+import { arrowTarget } from './segmented-keys';
 
 interface Option<T extends string> {
   value: T;
@@ -21,7 +22,20 @@ export function Segmented<T extends string>({ options, value, onChange, label, s
   const id = useId();
   const pad = size === 'sm' ? 'px-2.5 py-1.5 text-[0.8125rem]' : 'px-3.5 py-2 text-sm';
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full border border-line bg-paper/60 p-0.5">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="inline-flex rounded-full border border-line bg-paper/60 p-0.5"
+      onKeyDown={(event) => {
+        // Arrow keys (and Home / End) move the choice, as in any radio group
+        const to = arrowTarget(options.map((o) => o.value), value, event.key);
+        if (!to) return;
+        event.preventDefault();
+        onChange(to);
+        const index = options.findIndex((o) => o.value === to);
+        (event.currentTarget.children[index] as HTMLElement | undefined)?.focus();
+      }}
+    >
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -30,9 +44,10 @@ export function Segmented<T extends string>({ options, value, onChange, label, s
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={`relative rounded-full font-medium leading-none transition-colors ${pad} ${
-              selected ? 'text-paper' : 'text-muted hover:text-head'
+              selected ? 'text-on-head' : 'text-muted hover:text-head'
             }`}
           >
             {selected && (
