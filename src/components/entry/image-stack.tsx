@@ -1,8 +1,8 @@
 'use client';
 
-import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { ViewTransition, useEffect, useState } from 'react';
-import { CloseIcon } from '@/components/ui/icons';
+import { MotionConfig, motion } from 'motion/react';
+import { ViewTransition, useCallback, useState, type ReactNode } from 'react';
+import { PrintLightbox, type StripItem } from '@/components/fx/library';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { EntryImage } from '@/lib/types';
 
@@ -14,6 +14,8 @@ interface Props {
   developing: boolean;
   /** The analysis failed: the images are greyed out. */
   failed?: boolean;
+  /** Shown under the image, inside the sticky column (the palette). */
+  footer?: ReactNode;
 }
 
 /**
@@ -22,25 +24,20 @@ interface Props {
  */
 const ZOOM_SPRING = { type: 'spring', stiffness: 300, damping: 30, mass: 0.5 } as const;
 
-export function ImageStack({ entryId, images, name, developing, failed }: Props) {
+export function ImageStack({ entryId, images, name, developing, failed, footer }: Props) {
   const [selected, setSelected] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const current = images[Math.min(selected, images.length - 1)];
-
-  useEffect(() => {
-    if (!zoomed) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setZoomed(false);
-      if (event.key === 'ArrowRight') setSelected((i) => (i + 1) % images.length);
-      if (event.key === 'ArrowLeft') setSelected((i) => (i - 1 + images.length) % images.length);
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [zoomed, images.length]);
+  const close = useCallback(() => setZoomed(false), []);
+  // The shared zoom view; its arrows move the print on the page too.
+  const prints: StripItem[] = images.map((image, i) => ({
+    id: image.id,
+    src: image.full,
+    width: image.width,
+    height: image.height,
+    alt: `${name}, image ${i + 1}`,
+    caption: null,
+  }));
 
   if (!current) return null;
   // Tall images are capped so the print stays on screen beside the details.
@@ -120,41 +117,9 @@ export function ImageStack({ entryId, images, name, developing, failed }: Props)
         </ul>
       )}
 
-      <AnimatePresence>
-        {zoomed && (
-          <motion.div
-            className="fixed inset-0 z-[85] grid cursor-zoom-out place-items-center bg-[#140d0e]/92 p-4 sm:p-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            onClick={() => setZoomed(false)}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${name}, enlarged`}
-          >
-            <motion.div
-              layoutId={`zoom-${current.id}`}
-              className="overflow-hidden rounded-[3px] shadow-lift"
-              style={{
-                aspectRatio: `${current.width} / ${current.height}`,
-                width: `min(94vw, calc(90dvh * ${current.width / current.height}))`,
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={current.full} alt={`${name}, image ${selected + 1}`} className="h-full w-full object-contain" />
-            </motion.div>
-            <button
-              type="button"
-              className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-[#f6d9be]/10 text-[#f6d9be] hover:bg-[#f6d9be]/20"
-              onClick={() => setZoomed(false)}
-              aria-label="Close"
-            >
-              <CloseIcon />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {footer}
+
+      <PrintLightbox items={prints} index={zoomed ? selected : null} onIndex={setSelected} layoutPrefix="zoom" onClose={close} />
     </div>
     </MotionConfig>
   );
