@@ -5,6 +5,7 @@
 
 # local library (database + uploaded images)
 data/
+INSPi.zip
 
 # dependencies and build output
 node_modules/
@@ -21,6 +22,12 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 npm-debug.log*
+commitTask.md
 
 # reference images used for testing
 test-images/
+
+# archives and markdown notes
+*.zip
+*.md
+!README.md
